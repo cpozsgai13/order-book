@@ -2,11 +2,13 @@
 #define _EXCHANGE_ORDER_BOOK_H
 
 #include "OrderBook.h"
+#include "CoreMessages.h"
 #include <unordered_map>
 #include <string.h>
+#include <string>
 #include <boost/container/flat_map.hpp>
 
-namespace MatchEngine
+namespace MarketData
 {
 
 static constexpr size_t FLAT_STRING_SIZE = 20;
@@ -20,24 +22,25 @@ struct FlatStringComparator {
 
 class ExchangeOrderBook {
 public:
-    bool AddOrderBook(const FlatString& key, OrderBook&& order_book) {
-        instrument_map[key] = order_book;
-    }
+    ExchangeOrderBook(const std::string& name);
+    ~ExchangeOrderBook() = default;
+    // bool AddOrderBook(const FlatString& key, OrderBook&& order_book) {
+    //     instrument_map[key] = order_book;
+    // }
 
-    bool AddOrder(const FlatString& key, OrderPtr order) {
-        instrument_map[key].AddOrder(order);
-    }
+    bool AddNewOrder(InstrumentID inst_id, AddOrder& order);
 
-    bool UpdateOrder(const FlatString& key, ModifyOrder& order) {
-        instrument_map[key].UpdateOrder(order);
-    }
+    bool UpdateOrder(InstrumentID inst_id, ModifyOrder& order);
 
-    bool CancelOrder(const FlatString& key, OrderID orderID) {
-        instrument_map[key].CancelOrder(orderID);
-    }
+    bool CancelOrder(InstrumentID inst_id, OrderID orderID);
 
+    bool AddUpdateSymbol(Symbol& symbol);
+
+    bool PrintBook(const std::string& symbol);
 private:
-    boost::container::flat_map<FlatString, OrderBook, FlatStringComparator> instrument_map;
+    boost::container::flat_map<InstrumentID, std::unique_ptr<OrderBook>> instrument_map;
+    std::unordered_map<std::string, InstrumentID> symbol_map;
+    std::string exchange_name;
 };
 
 }

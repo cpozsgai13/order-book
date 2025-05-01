@@ -121,7 +121,7 @@ bool MulticastReceiver::run() {
       }
 
       Packet packet;
-      if(packet.FromBuffer(buffer, bytes)) {
+      if(Packet::FromBuffer(buffer, bytes, packet)) {
           processMessage(packet);
       }
     }

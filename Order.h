@@ -16,7 +16,7 @@ namespace MarketData
 class Order
 {
 public:
-    Order(OrderType t, Side s, OrderID oid, Price p, Quantity q, Timestamp time):
+    Order(OrderType t, Side s, OrderID oid, FixedPrecisionPrice<uint64_t, 6> p, Quantity q, Timestamp time):
         order_type(t),
         side(s),
         order_id(oid),
@@ -42,7 +42,7 @@ public:
         return order_id;
     }
 
-    Price GetPrice() const
+    FixedPrecisionPrice<uint64_t, 6> GetPrice() const
     {
         return price;
     }
@@ -88,7 +88,7 @@ private:
     OrderType order_type;
     Side side;
     OrderID order_id;
-    Price price;
+    FixedPrecisionPrice<uint64_t, 6> price;
     Quantity initial_quantity;
     Quantity remaining_quantity;
     Timestamp creation_time_ns;

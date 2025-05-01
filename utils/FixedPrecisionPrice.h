@@ -49,23 +49,47 @@ public:
     FixedPrecisionPrice(double d): 
     places(Places) {
         divisor = Power<T, Places>(10)();
-        //  We need to know how many places to pad.
 
         T raw = static_cast<T>(d*divisor);
         value = raw;
     }
 
-    operator double() {
+    FixedPrecisionPrice(const FixedPrecisionPrice& other) {
+        *this = other;
+    }
+
+    FixedPrecisionPrice& operator=(const FixedPrecisionPrice& other) {
+        value = other.value;
+        divisor = Power<T, Places>(10)();
+        return *this;
+    }
+
+    bool operator==(const FixedPrecisionPrice& other) {
+        return value == other.value;
+    }
+
+    operator double() const {
         return (double)value/divisor;
     }
 
     T rawValue() const {
         return value;
     }
+
+    bool operator<(const FixedPrecisionPrice<T, Places>& other) const {
+        return value < other.value;
+    }
 private:
     T value{0};
     uint8_t places{0};
     T divisor{0};
 };
+
+// template<typename T, int Places>
+// struct hash<FixedPrecisionPrice<T, Places>> {
+//     size_t operator()(const FixedPrecisionPrice<T, Price>& key) const {
+//         return hash<T>()(key.rawValue);
+//     }
+// };
 
 #endif

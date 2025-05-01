@@ -4,13 +4,14 @@
 #include <vector>
 #include <memory>
 #include <list>
-
+#include "FixedPrecisionPrice.h"
 namespace MarketData
 {
 using InstrumentID = uint64_t;
 using Timestamp = uint64_t;
-using OrderID = Timestamp;
-using Price = uint64_t;
+using OrderID = uint64_t;
+using RawPrice = uint64_t;
+using Price = FixedPrecisionPrice<RawPrice, 6>;
 using Quantity = uint64_t;
 using Volume = uint64_t;
 

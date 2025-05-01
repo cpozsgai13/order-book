@@ -99,7 +99,7 @@ inline bool fromString(const std::string& input_string, Side side, OrderPtr& ord
         return false;
     }
 
-    Price price;
+    //Price price;
     start_pos = end_pos + 1;
     end_pos = input_string.find_first_of(' ', start_pos);
     if(end_pos == std::string::npos)
@@ -107,7 +107,8 @@ inline bool fromString(const std::string& input_string, Side side, OrderPtr& ord
         return false;
     }
     s = input_string.substr(start_pos, end_pos - start_pos);
-    price = std::stoul(s);
+    double price = std::stod(s.c_str());
+    FixedPrecisionPrice<uint64_t, 6> fp{price};
 
     Quantity quantity;
     start_pos = end_pos + 1;
@@ -124,7 +125,7 @@ inline bool fromString(const std::string& input_string, Side side, OrderPtr& ord
     OrderID order_id = stoull(s);
     uint64_t creation_time_ns = std::chrono::system_clock::now().time_since_epoch().count();
 
-    order = std::make_shared<Order>(order_type, side, order_id, price, quantity, creation_time_ns);
+    order = std::make_shared<Order>(order_type, side, order_id, fp, quantity, creation_time_ns);
     return true;
 }
 
@@ -158,6 +159,7 @@ bool cancelFromString(const std::string& input_string, CoreMessage& cm)
     }
     OrderID order_id = std::stoull(s);
     cm.data.cancel_order = {inst_id, order_id};
+
     return true;
 }
 
@@ -265,7 +267,7 @@ bool orderFromString(const std::string& input_string, Side side, CoreMessage& co
     uint64_t creation_time_ns = std::chrono::system_clock::now().time_since_epoch().count();
 
     coreMessage.data.add_order = {order_type, id, order_id, side, fp, quantity, creation_time_ns};
-
+    coreMessage.data.add_order.data_type = DataType::ADD_ORDER;
     return true;
 }
 
@@ -281,9 +283,8 @@ bool modifyFromString(const std::string& input_string, CoreMessage& coreMessage)
     }
 
     s = input_string.substr(start_pos, end_pos - start_pos);
-    OrderID order_id = stoi(s);
+    InstrumentID id = std::stoul(s);
 
-    InstrumentID id;
     start_pos = end_pos + 1;
     end_pos = input_string.find_first_of(' ', start_pos);
     if(end_pos == std::string::npos)
@@ -291,7 +292,7 @@ bool modifyFromString(const std::string& input_string, CoreMessage& coreMessage)
         return false;
     }
     s = input_string.substr(start_pos, end_pos - start_pos);
-    id = std::stoul(s);
+    OrderID order_id = stoul(s);
 
     Side side;
     start_pos = end_pos + 1;
@@ -306,7 +307,6 @@ bool modifyFromString(const std::string& input_string, CoreMessage& coreMessage)
         return false;
     }
 
-    Price price;
     start_pos = end_pos + 1;
     end_pos = input_string.find_first_of(' ', start_pos);
     if(end_pos == std::string::npos)
@@ -314,7 +314,8 @@ bool modifyFromString(const std::string& input_string, CoreMessage& coreMessage)
         return false;
     }
     s = input_string.substr(start_pos, end_pos - start_pos);
-    price = std::stoul(s);
+    double price = std::stod(s.c_str());
+    FixedPrecisionPrice<uint64_t, 6> fp{price};
 
     Quantity quantity;
     start_pos = end_pos + 1;
@@ -323,7 +324,8 @@ bool modifyFromString(const std::string& input_string, CoreMessage& coreMessage)
 
 
     uint64_t creation_time_ns = std::chrono::system_clock::now().time_since_epoch().count();
-    coreMessage.data.update_order = {order_id, id, side, price, quantity, creation_time_ns};
+    coreMessage.data.update_order = {order_id, id, side, fp, quantity, creation_time_ns};
+    coreMessage.data.update_order.data_type = DataType::UPDATE_ORDER;
     return true;
 }
 
@@ -352,82 +354,93 @@ bool symbolFromString(const std::string& input_string, CoreMessage& coreMessage)
 
     uint64_t creation_time_ns = std::chrono::system_clock::now().time_since_epoch().count();
     coreMessage.data.symbol = {sym, id, price};
+    coreMessage.data.symbol.data_type = DataType::SYMBOL;
     return true;
 }
 
 //  Load a market data file and creates Packets.
 bool FileReader::loadFile(const std::string& path, std::vector<Packet>& packets) {
-    std::ifstream in_file(path);
-    if(!in_file.is_open()) {
-        return false;
-    }
+  std::ifstream in_file(path);
+  if(!in_file.is_open()) {
+      return false;
+  }
 
-    //  Read each line
-    std::string line;
-    Packet cur_packet;
-    CoreMessage cm{};
-    while(std::getline(in_file, line)) {
-        Actions action = parseActionLine(line);
-        //ModifyOrder mo;
-        switch(action)
-        {
-            case Actions::SYMBOL: 
-            {
-                if(symbolFromString(line, cm)) {
-                    if(!cur_packet.AddMessage(cm)) {
-                        packets.push_back(cur_packet);
-                        cur_packet.clear();
-                        cur_packet.AddMessage(cm);
-                    }
-                }
-                break;
+  //  Read each line
+  std::string line;
+  Packet cur_packet, backup_packet;
+  while(std::getline(in_file, line)) {
+    Actions action = parseActionLine(line);
+    switch(action)
+    {
+      case Actions::SYMBOL: 
+      {
+        CoreMessage cm{};
+        if(symbolFromString(line, cm)) {
+            if(cur_packet.CanAddMessage()) {
+              cur_packet.AddMessage(std::move(cm));
+            } else {
+              packets.push_back(cur_packet);
+              cur_packet.clear();
+              cur_packet.AddMessage(std::move(cm));
             }
-            case Actions::BUY:
-            case Actions::SELL:
-            {
-                if(orderFromString(line, action == Actions::BUY ? Side::BID : Side::ASK, cm)) {
-                    if(!cur_packet.AddMessage(cm)) {
-                        packets.push_back(cur_packet);
-                        cur_packet.clear();
-                        cur_packet.AddMessage(cm);
-                    }
-                }
-                break;
-            }
-            case Actions::MODIFY:
-            {
-                if(modifyFromString(line, cm)) {
-                    if(!cur_packet.AddMessage(cm)) {
-                        packets.push_back(cur_packet);
-                        cur_packet.clear();
-                        cur_packet.AddMessage(cm);
-                    }
-                }
-                break;
-            }
-            case Actions::CANCEL:
-            {
-                OrderID order_id;
-                InstrumentID instrument_id;
-                if(cancelFromString(line, cm))
-                {
-                    if(!cur_packet.AddMessage(cm)) {
-                        packets.push_back(cur_packet);
-                        cur_packet.clear();
-                        cur_packet.AddMessage(cm);
-                    }
-                } 
-                break;
-            }
-            default:
-                break;
+          }
+          break;
         }
-
-    }
-    if(cur_packet.MessageCount()) {
-        packets.push_back(cur_packet);
-    }
-    return !packets.empty();
+        case Actions::BUY:
+        case Actions::SELL:
+        {
+          CoreMessage cm{};
+          if(orderFromString(line, action == Actions::BUY ? Side::BID : Side::ASK, cm)) {
+              if(cur_packet.CanAddMessage()) {
+                cur_packet.AddMessage(std::move(cm));                    
+              } else {
+                packets.push_back(cur_packet);
+                cur_packet.clear();
+                cur_packet.AddMessage(std::move(cm));
+              }
+          }
+          break;
+        }
+          case Actions::MODIFY:
+          {
+              CoreMessage cm{};
+              if(modifyFromString(line, cm)) {
+                if(cur_packet.CanAddMessage()) {
+                  cur_packet.AddMessage(std::move(cm));
+                } else {
+                  packets.push_back(cur_packet);
+                  cur_packet.clear();
+                  cur_packet.AddMessage(std::move(cm));
+                }
+              }
+              break;
+          }
+          case Actions::CANCEL:
+          {
+              OrderID order_id;
+              InstrumentID instrument_id;
+              CoreMessage cm{};
+              if(cancelFromString(line, cm))
+              {
+                if(cur_packet.CanAddMessage()) {
+                  cur_packet.AddMessage(std::move(cm));
+                } else {
+                  packets.push_back(cur_packet);
+                  cur_packet.clear();
+                  cur_packet.AddMessage(std::move(cm));
+                }
+              } 
+              break;
+          }
+          default:
+              break;
+      }
+  }
+  if(cur_packet.MessageCount()) {
+      packets.push_back(cur_packet);
+  }
+  in_file.close();
+  return !packets.empty();
 }   
 
 }

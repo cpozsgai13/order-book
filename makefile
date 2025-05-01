@@ -1,11 +1,11 @@
 
 SUBDIRS := producer consumer messages utils
 PROG := OrderBookApp
-SRC := MatchOrderEngine.cpp OrderBook.cpp main.cpp
+SRC := ExchangeOrderBook.cpp ExchangeDataProcessor.cpp OrderBook.cpp main.cpp
 
 OBJS := $(SRC:.cpp=.o)
-PRODUCER_OBJS := producer/MulticastProducer.o producer/MulticastSender.o
-CONSUMER_OBJS := consumer/MulticastConsumer.o consumer/MulticastReceiver.o
+PRODUCER_OBJS := producer/MulticastProducer.o producer/MulticastSender.o producer/TCPSender.o
+CONSUMER_OBJS := consumer/MulticastConsumer.o consumer/MulticastReceiver.o consumer/TCPReceiver.o
 UTIL_OBJS := utils/MarketDataFileReader.o
 
 CC := g++
@@ -37,7 +37,7 @@ subdirs:
 	done
 
 clean:
+	rm -f $(OBJS) $(PROG)
 	@for subdir in $(SUBDIRS); do \
 		$(MAKE) -C $$subdir clean; \
 	done
-	rm -f $(OBJ) $(PROG)

@@ -2,13 +2,13 @@
 #define _TRADE_H_
 
 #include "MarketDataDefinitions.h"
-
+#include "FixedPrecisionPrice.h"
 namespace MarketData
 {
 struct TradeSide
 {
     OrderID order_id;
-    Price price;
+    FixedPrecisionPrice<RawPrice, 6> price;
     Quantity quantity;
 };
 

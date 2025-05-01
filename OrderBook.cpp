@@ -9,6 +9,11 @@
 namespace MarketData
 {
 
+auto printTrade = [](const Trade& trade) {
+    std::cout << "TRADE: Bid(" << trade.bid_side.order_id << " " << (double)trade.bid_side.price << " " << trade.bid_side.quantity \
+        << "), Ask(" << trade.ask_side.order_id << " " << (double)trade.ask_side.price << " " << trade.bid_side.quantity << ")" << std::endl;
+};
+
 auto formatTimestampUTC = [](std::chrono::system_clock::time_point tp) -> std::string {
 
     time_t t = std::chrono::system_clock::to_time_t(tp);
@@ -34,19 +39,54 @@ auto BetterPrice =[](const Order& o1, const Order& o2) -> bool
 {
     if(o1.GetSide() == Side::BID)
     {
-        return o1.GetPrice() >= o2.GetPrice();
+        return o1.GetPrice().rawValue() >= o2.GetPrice().rawValue();
     }
     else if(o1.GetSide() == Side::ASK)
     {
-        return o1.GetPrice() < o2.GetPrice();
+        return o1.GetPrice().rawValue() < o2.GetPrice().rawValue();
     }
 };
-    
-auto ToOrderPtr=[](MarketData::OrderType orig_type, const ModifyOrder& order) -> OrderPtr {
-    //return std::make_shared<Order>(order.);
-    Price norm_price = order.price.rawValue();
-    return std::make_shared<Order>(orig_type, order.side, order.order_id, norm_price, order.quantity, order.update_time_ns);
+
+auto FilterBidQueue=[](
+    std::priority_queue<OrderPtr, std::vector<OrderPtr>, OrderCompareBid>& bid_map, 
+    std::unordered_set<OrderID>& skip_list) ->
+    std::priority_queue<OrderPtr, std::vector<OrderPtr>, OrderCompareBid>
+{
+    std::priority_queue<OrderPtr, std::vector<OrderPtr>, OrderCompareBid> bid_map_out{OrderCompareBid()}; 
+    while(!bid_map.empty()) {
+        auto& bid = bid_map.top();
+
+        if(skip_list.count(bid->GetOrderID()) == 0) {
+            //  Add to the list.
+            bid_map_out.push(bid);
+        }
+        bid_map.pop();
+    }
+    return bid_map_out;
 };
+
+auto FilterAskQueue=[](
+    std::priority_queue<OrderPtr, std::vector<OrderPtr>, OrderCompareAsk>& ask_map, 
+    std::unordered_set<OrderID>& skip_list) ->
+    std::priority_queue<OrderPtr, std::vector<OrderPtr>, OrderCompareAsk>
+{
+    std::priority_queue<OrderPtr, std::vector<OrderPtr>, OrderCompareAsk> ask_map_out{OrderCompareAsk()}; 
+    while(!ask_map.empty()) {
+        auto& ask = ask_map.top();
+
+        if(skip_list.count(ask->GetOrderID()) == 0) {
+            //  Add to the list.
+            ask_map_out.push(ask);
+        }
+        ask_map.pop();
+    }
+    return ask_map_out;
+};
+
+OrderBook::OrderBook(Symbol& sym): 
+    identity(std::move(sym))
+{
+}
 
 OrderBook::OrderBook()
 {
@@ -69,7 +109,7 @@ bool OrderBook::AddOrder(OrderPtr order)
         return false;
     }
    
-    Price price = order->GetPrice();
+    auto price = order->GetPrice();
     Quantity q = order->GetInitialQuantity();
     if(order->GetOrderType() == OrderType::IOC)
     {
@@ -86,10 +126,10 @@ bool OrderBook::AddOrder(OrderPtr order)
 
         //  There are no orders at this price.
         if(orders.empty()) {
-            bid_volume_map.insert(std::make_pair(price, q));
+            bid_volume_map.insert(std::make_pair(price.rawValue(), q));
         } else {
             //  Lookup the price and add the volume.
-            bid_volume_map[price] += q;
+            bid_volume_map[price.rawValue()] += q;
         }
 
         orders.push_back(order);
@@ -99,9 +139,9 @@ bool OrderBook::AddOrder(OrderPtr order)
     {
         auto& orders = ask_queue_map[price];
         if(orders.empty()) {
-            ask_volume_map.insert(std::make_pair(price, q));
+            ask_volume_map.insert(std::make_pair(price.rawValue(), q));
         } else {
-            ask_volume_map[price] += q;
+            ask_volume_map[price.rawValue()] += q;
             ask_queue_map[price].push_back(order);
         }
 
@@ -111,6 +151,9 @@ bool OrderBook::AddOrder(OrderPtr order)
     }
 
     order_map.insert(std::make_pair(order_id, order));
+
+    Print();
+
     MatchOrders();
     return true;
 }
@@ -124,13 +167,13 @@ bool OrderBook::CancelOrder(OrderID order_id)
 
     const auto& order = order_map.at(order_id);
     Side side = order->GetSide();
-    Price price = order->GetPrice();
+    auto price = order->GetPrice();
     Quantity q = order->GetRemainingQuantity();
 
     if(side == Side::BID)
     {
         //  Find the volume and reduce it for this order.  If volume is zero remove entry.
-        auto bid_volume_iter = bid_volume_map.find(price);
+        auto bid_volume_iter = bid_volume_map.find(price.rawValue());
         if(bid_volume_iter != bid_volume_map.end()) {
             Volume& vol = bid_volume_iter->second;
             vol -= q;
@@ -152,8 +195,7 @@ bool OrderBook::CancelOrder(OrderID order_id)
             if(order_queue.empty()) {
                 bid_queue_map.erase(bid_queue_iter);
 
-                //  Now how to remove from the priority queue?
-                //  Use a skip list or recreate the 
+                //  To remove from pri queue, add to skip list. 
                 best_bid_skip_list.insert(order_id);
             }
         }
@@ -162,7 +204,7 @@ bool OrderBook::CancelOrder(OrderID order_id)
     else if(side == Side::ASK)
     {
         //  Find the volume and reduce it for this order.  If volume is zero remove entry.
-        auto ask_volume_iter = ask_volume_map.find(price);
+        auto ask_volume_iter = ask_volume_map.find(price.rawValue());
         if(ask_volume_iter != ask_volume_map.end()) {
             Volume& vol = ask_volume_iter->second;
             vol -= q;
@@ -184,7 +226,7 @@ bool OrderBook::CancelOrder(OrderID order_id)
             if(order_queue.empty()) {
                 ask_queue_map.erase(ask_queue_iter);
 
-                //  Now how to remove from the priority queue?
+                //  To remove from pri queue, add to skip list. 
                 best_ask_skip_list.insert(order_id);
             }
         }
@@ -205,12 +247,12 @@ bool OrderBook::UpdateOrder(ModifyOrder& order)
     return true;
 }
 
-Volume OrderBook::GetVolumeAtPrice(uint32_t price, Side side)
+Volume OrderBook::GetVolumeAtPrice(Price price, Side side)
 {
     Volume volume = 0;
     if(side == Side::BID)
     {
-        const auto iter = bid_volume_map.find(price);
+        const auto iter = bid_volume_map.find(price.rawValue());
         if(iter == bid_volume_map.end()) {
             return 0;
         } else {
@@ -219,7 +261,7 @@ Volume OrderBook::GetVolumeAtPrice(uint32_t price, Side side)
     }
     else if(side == Side::ASK)
     {
-        const auto iter = ask_volume_map.find(price);
+        const auto iter = ask_volume_map.find(price.rawValue());
         if(iter == ask_volume_map.end()) {
             return 0;
         } else {
@@ -233,17 +275,27 @@ void OrderBook::MatchOrders()
 {
     while(true)
     {
+        if(!best_bid_skip_list.empty()) {
+            best_bid_map = FilterBidQueue(best_bid_map, best_bid_skip_list);
+            best_bid_skip_list.clear();
+        }
+
+        if(!best_ask_skip_list.empty()) {
+            best_ask_map = FilterAskQueue(best_ask_map, best_ask_skip_list);
+            best_ask_skip_list.clear();
+        }
+
         if(best_bid_map.empty() || best_ask_map.empty())
         {
             break;
         }
         OrderPtr best_ask_order = best_ask_map.top();
-        Price best_ask = best_ask_order->GetPrice();
+        auto best_ask = best_ask_order->GetPrice();
 
         OrderPtr best_bid_order = best_bid_map.top();
-        Price best_bid = best_bid_order->GetPrice();
+        auto best_bid = best_bid_order->GetPrice();
 
-        if(best_bid < best_ask)
+        if(best_bid.rawValue() < best_ask.rawValue())
         {
             break;
         }
@@ -265,14 +317,20 @@ void OrderBook::MatchOrders()
             
             Quantity q = std::min(ask_quantity, bid_quantity);
 
+            //  Dump book on each trade.
             //  Push the trade then update the containers
             trades.push_back(Trade{
                 TradeSide{bid->GetOrderID(), bid->GetPrice(), q}, 
                 TradeSide{ask->GetOrderID(), ask->GetPrice(), q}
             });
+            Print();
+            trades.clear();
+            // printTrade(Trade{
+            //     TradeSide{bid->GetOrderID(), bid->GetPrice(), q}, 
+            //     TradeSide{ask->GetOrderID(), ask->GetPrice(), q}});
 
             ask->Fill(q);
-            ask_volume_map[best_ask] -= q;
+            ask_volume_map[best_ask.rawValue()] -= q;
             if(ask->Filled()) {
                 ask_queue.erase(ask_queue.begin());
                 order_map.erase(ask->GetOrderID());
@@ -281,37 +339,29 @@ void OrderBook::MatchOrders()
                     //  Erase the price line.
                     best_ask_map.pop();
                     ask_queue_map.erase(best_ask);
-                    //  We don't need this volume entry either.
                     ask_volume_map.erase(best_ask);
                 }
             }
 
             bid->Fill(q);
-            bid_volume_map[best_bid] -= q;
+            bid_volume_map[best_bid.rawValue()] -= q;
             if(bid->Filled()) {
                 bid_queue.erase(bid_queue.begin());
                 order_map.erase(bid->GetOrderID());
 
                 if(bid_volume_map[best_bid] == 0) {
+                    //  Erase the price line.
                     best_bid_map.pop();
                     bid_queue_map.erase(best_bid);
-                    ask_volume_map.erase(best_bid);
+                    bid_volume_map.erase(best_bid);
                 }
             }
-
-            // if(ask_queue.empty()) {
-            //     best_ask_map.pop();
-            // }
-
-            // if(bid_queue.empty()) {
-            //     best_bid_map.pop();
-            // }
         }
     }
     return;
 }
 
-bool OrderBook::CanMatch(Side s, Price p)
+bool OrderBook::CanMatch(Side s, FixedPrecisionPrice<uint64_t, 6> p)
 {
     if(s == Side::BID)
     {
@@ -321,7 +371,7 @@ bool OrderBook::CanMatch(Side s, Price p)
         }
 
         auto best_ask = best_ask_map.top()->GetPrice();
-        return (p >= best_ask);
+        return (p.rawValue() >= best_ask.rawValue());
     }
     else if(s == Side::ASK)
     {
@@ -331,7 +381,7 @@ bool OrderBook::CanMatch(Side s, Price p)
         }
 
         auto best_bid = best_bid_map.top()->GetPrice();
-        return (p <= best_bid);
+        return (p.rawValue() <= best_bid.rawValue());
     }
     return false;
 }
@@ -367,7 +417,7 @@ void OrderBook::Print()
             ss.str("");
             if(i < bid_book_size) {
                 auto bid_price = bid_iter->first;
-                ss << pad << std::setw(6) << std::setfill(' ') << std::right << bid_volume_map[bid_price] << " " << std::setw(6) << std::setfill(' ') << std::right << bid_price;
+                ss << pad << std::setw(6) << std::setfill(' ') << std::right << bid_volume_map[bid_price.rawValue()] << " " << std::setw(6) << std::setfill(' ') << std::right << (double) bid_price;
                 ++bid_iter;
             } else {
                 ss << empty_quote;
@@ -375,7 +425,7 @@ void OrderBook::Print()
             ss << "|";
             if(i < ask_book_size) {
                 auto ask_price = ask_iter->first;
-                ss << std::setw(6) << std::setfill(' ') << std::right << ask_price << " " << std::setw(6) << std::setfill(' ') << std::right << ask_volume_map[ask_price];
+                ss << std::setw(6) << std::setfill(' ') << std::right << (double)ask_price << " " << std::setw(6) << std::setfill(' ') << std::right << ask_volume_map[ask_price.rawValue()];
                 ++ask_iter;
             } else {
                 ss << pad_empty;
@@ -391,9 +441,7 @@ void OrderBook::Print()
         std::cout << "TRADES: " << trades.size()  << std::endl;
         for(const auto& trade: trades)
         {
-            // std::cout << trade << std::endl;
-            std::cout << "TRADE " << trade.bid_side.order_id << " " << trade.bid_side.price << " " << trade.bid_side.quantity \
-                << " " << trade.ask_side.order_id << " " << trade.bid_side.price << " " << trade.bid_side.quantity << std::endl;
+            printTrade(trade);
         }
     }
 

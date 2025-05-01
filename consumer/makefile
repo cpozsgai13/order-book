@@ -1,5 +1,5 @@
 
-SRC := MulticastConsumer.cpp MulticastReceiver.cpp
+SRC := MulticastConsumer.cpp MulticastReceiver.cpp TCPReceiver.cpp
 OBJ := $(SRC:.cpp=.o)
 CC := g++
 CXXFLAGS := --std=c++17 -Wextra -I../messages -I../ -I../utils
