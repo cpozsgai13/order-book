@@ -20,37 +20,6 @@
 using namespace MarketData;
 using namespace std;
 
-std::vector<uint64_t> add_stats, update_stats, cancel_stats, print_stats;
-auto getMinMaxMeanMedian=[](const std::vector<uint64_t>& stats) -> std::tuple<uint64_t, uint64_t, uint64_t, uint64_t> {
-    tuple<uint64_t, uint64_t, uint64_t, uint64_t> res;
-    if(stats.empty()) {
-        return res;
-    }
-    auto N = stats.size();
-
-    //  Get min
-    auto min_value = *std::min_element(begin(stats), end(stats));
-    auto max_value = *std::max_element(begin(stats), end(stats));
-
-    //  Get mean.
-    auto mean = std::accumulate(begin(stats), end(stats), 0);
-    mean = mean / N;
-
-    auto median = 0;
-    //  Median
-    if(N % 2 == 1) {
-        median = stats[N/2];
-    } else {
-        median = (int)(stats[N/2 - 1] + stats[N/2])/2;
-    }
-    get<0>(res) = min_value;
-    get<1>(res) = max_value;
-    get<2>(res) = mean;
-    get<3>(res) = median;
-
-    return res;
-};
-
 const auto parseAction=[](std::string& line) -> MarketData::Actions
 {
     auto pos = line.find(' ');
@@ -87,46 +56,6 @@ const auto parseAction=[](std::string& line) -> MarketData::Actions
     return MarketData::Actions::INVALID;
 };
 
-auto printStats = []() {
-    std::string sep(50, '-');
-
-    std::cout << "ADD ORDER STATS: " << std::endl;
-    std::cout << "\tCOUNT: " << add_stats.size() << std::endl;
-    auto res = getMinMaxMeanMedian(add_stats);
-    std::cout << "\tMIN: " << get<0>(res) << std::endl;
-    std::cout << "\tMAX: " << get<1>(res) << std::endl;
-    std::cout << "\tMEAN: " << get<2>(res) << std::endl;
-    std::cout << "\tMDN: " << get<3>(res) << std::endl;
-    std::cout << sep << std::endl;
-
-
-    std::cout << "MODIFY ORDER STATS: " << std::endl;
-    std::cout << "\tCOUNT: " << update_stats.size() << std::endl;
-    res = getMinMaxMeanMedian(update_stats);
-    std::cout << "\tMIN: " << get<0>(res) << std::endl;
-    std::cout << "\tMAX: " << get<1>(res) << std::endl;
-    std::cout << "\tMEAN: " << get<2>(res) << std::endl;
-    std::cout << "\tMDN: " << get<3>(res) << std::endl;
-    std::cout << sep << std::endl;
-
-    std::cout << "CANCEL ORDER STATS: " << std::endl;
-    std::cout << "\tCOUNT: " << cancel_stats.size() << std::endl;
-    res = getMinMaxMeanMedian(cancel_stats);
-    std::cout << "\tMIN: " << get<0>(res) << std::endl;
-    std::cout << "\tMAX: " << get<1>(res) << std::endl;
-    std::cout << "\tMEAN: " << get<2>(res) << std::endl;
-    std::cout << "\tMDN: " << get<3>(res) << std::endl;
-    std::cout << sep << std::endl;
-
-    std::cout << "PRINT STATS: " << std::endl;
-    std::cout << "\tCOUNT: " << print_stats.size() << std::endl;
-    res = getMinMaxMeanMedian(print_stats);
-    std::cout << "\tMIN: " << get<0>(res) << std::endl;
-    std::cout << "\tMAX: " << get<1>(res) << std::endl;
-    std::cout << "\tMEAN: " << get<2>(res) << std::endl;
-    std::cout << "\tMDN: " << get<3>(res) << std::endl;
-
-};
 
 const auto processMarketDataInputLine=[](std::string& line, ExchangeOrderBook& exchange_book) -> void
 {
@@ -220,7 +149,11 @@ int main(int argc, char *argv[])
             while(pos != std::string::npos) {
                 start_pos = pos + 1;
                 pos = files_str.find(',', start_pos);
-                data_files.push_back(files_str.substr(start_pos, pos));
+                if(pos != std::string::npos) {
+                    data_files.push_back(files_str.substr(start_pos, pos - start_pos));
+                } else {
+                    data_files.push_back(files_str.substr(start_pos));
+                }
             }
         }
 
@@ -309,7 +242,6 @@ int main(int argc, char *argv[])
         std::getline(std::cin, line);
         if(line == "q")
         {
-            printStats();
             break;
         } else {
             //  Take commands

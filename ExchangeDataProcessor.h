@@ -3,6 +3,7 @@
 
 #include "ExchangeOrderBook.h"
 #include "CoreMessages.h"
+#include "PerformanceCounter.h"
 #include <atomic>
 #include <queue>
 #include <mutex>
@@ -29,6 +30,8 @@ private:
     std::atomic_bool running{false};
     std::mutex& m;
     std::condition_variable& cond;
+    bool measuring{true};
+    PerformanceCounter perf_counter;
 
     void initHandlers();
     void processPacket(Packet&& packet);

@@ -152,7 +152,7 @@ bool OrderBook::AddOrder(OrderPtr order)
 
     order_map.insert(std::make_pair(order_id, order));
 
-    Print();
+    //Print();
 
     MatchOrders();
     return true;
@@ -323,8 +323,8 @@ void OrderBook::MatchOrders()
                 TradeSide{bid->GetOrderID(), bid->GetPrice(), q}, 
                 TradeSide{ask->GetOrderID(), ask->GetPrice(), q}
             });
-            Print();
-            trades.clear();
+            // Print();
+            // trades.clear();
             // printTrade(Trade{
             //     TradeSide{bid->GetOrderID(), bid->GetPrice(), q}, 
             //     TradeSide{ask->GetOrderID(), ask->GetPrice(), q}});

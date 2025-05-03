@@ -1,7 +1,12 @@
 #include "ExchangeDataProcessor.h"
 #include "LogUtils.h"
 #include <iostream>
+#include <algorithm>
+#include <numeric>
 #include <atomic>
+#include <tuple>
+#include "rtdsc.h"
+#include "PerformanceCounter.h"
 
 namespace MarketData
 {
@@ -37,17 +42,32 @@ void ExchangeDataProcessor::processSymbol(CoreMessage& cm) {
 
 void ExchangeDataProcessor::processAddOrder(CoreMessage& cm) {
 	AddOrder& order = (AddOrder&)cm.data;
-	exchange_order_book.AddNewOrder(order.instrument_id, order);
+	if(!measuring) {
+		exchange_order_book.AddNewOrder(order.instrument_id, order);
+	} else {
+		perf_counter.addStat(CallAndMeasure(&ExchangeOrderBook::AddNewOrder, &exchange_order_book, order.instrument_id, order));
+		//add_stats.push_back(CallAndMeasure(&ExchangeOrderBook::AddNewOrder, &exchange_order_book, order.instrument_id, order));
+	}
 }
 
 void ExchangeDataProcessor::processUpdateOrder(CoreMessage& cm) {
 	ModifyOrder& order = (ModifyOrder&)cm.data;
-	exchange_order_book.UpdateOrder(order.instrument_id, order);
+	if(!measuring) {
+		exchange_order_book.UpdateOrder(order.instrument_id, order);
+	} else {
+		perf_counter.updateStat(CallAndMeasure(&ExchangeOrderBook::UpdateOrder, &exchange_order_book, order.instrument_id, order));
+		//update_stats.push_back(CallAndMeasure(&ExchangeOrderBook::UpdateOrder, exchange_order_book, order.instrument_id, order));
+	}
 }
 
 void ExchangeDataProcessor::processCancelOrder(CoreMessage& cm) {
 	CancelOrder& cancel = (CancelOrder&)cm.data;
-	exchange_order_book.CancelOrder(cancel.instrument_id, cancel.order_id);
+	if(!measuring) {
+		exchange_order_book.CancelOrder(cancel.instrument_id, cancel.order_id);
+	} else {
+		perf_counter.cancelStat(CallAndMeasure(&ExchangeOrderBook::CancelOrder, &exchange_order_book, cancel.instrument_id, cancel.order_id));
+		//cancel_stats.push_back(CallAndMeasure(&ExchangeOrderBook::CancelOrder, &exchange_order_book, cancel.instrument_id, cancel.order_id));
+	}
 }
 
 void ExchangeDataProcessor::start() {
@@ -60,6 +80,10 @@ void ExchangeDataProcessor::stop() {
   std::lock_guard<std::mutex> lock(m);
   running.store(false);
   cond.notify_one();
+
+  if(measuring) {
+	perf_counter.printStats();
+  }
 }
 
 bool ExchangeDataProcessor::run() {
@@ -86,6 +110,8 @@ bool ExchangeDataProcessor::run() {
 		if(packet.GetSize()) {
 			std::cout << "ExchangeDataProcessor received packet of size " << packet.GetSize() << std::endl;
 			processPacket(std::move(packet));
+		} else {
+			std::cout << "ExchangeDataProcessor received invalid packet of size " << packet.GetSize() << std::endl;
 		}
 	}
     std::cout << "Processor left main run loop" << std::endl;

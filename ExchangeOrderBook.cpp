@@ -7,7 +7,7 @@ ExchangeOrderBook::ExchangeOrderBook(const std::string& name):
 exchange_name(name){}
 
 bool ExchangeOrderBook::AddUpdateSymbol(Symbol& symbol) {
-    instrument_map[symbol.instrument_id] = std::make_unique<OrderBook>(symbol);
+    instrument_map[symbol.instrument_id] = std::make_shared<OrderBook>(symbol);
     std::string sym = formatText(symbol.symbol, SYMBOL_MAX_LEN);
     symbol_map[sym] = symbol.instrument_id;
     return true;

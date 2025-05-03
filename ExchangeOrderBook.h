@@ -38,7 +38,7 @@ public:
 
     bool PrintBook(const std::string& symbol);
 private:
-    boost::container::flat_map<InstrumentID, std::unique_ptr<OrderBook>> instrument_map;
+    boost::container::flat_map<InstrumentID, std::shared_ptr<OrderBook>> instrument_map;
     std::unordered_map<std::string, InstrumentID> symbol_map;
     std::string exchange_name;
 };
