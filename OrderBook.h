@@ -41,14 +41,14 @@ private:
     std::unordered_set<OrderID> best_ask_skip_list;
 
     std::unordered_map<OrderID, OrderPtr> order_map;
-    std::unordered_map<RawPrice, Volume> bid_volume_map;
-    std::unordered_map<RawPrice, Volume> ask_volume_map;
+    std::unordered_map<Price, Volume, KeyHash<uint64_t, 6>> bid_volume_map;
+    std::unordered_map<Price, Volume, KeyHash<uint64_t, 6>> ask_volume_map;
     std::map<Price, OrderQueue, std::greater<Price>> bid_queue_map;
     std::map<Price, OrderQueue, std::less<Price>> ask_queue_map;
 
     Trades trades;
 
-    bool CanMatch(Side s, FixedPrecisionPrice<uint64_t, 6> p);
+    bool CanMatch(Side s, Price p);
     void MatchOrders();
 
     Symbol identity;

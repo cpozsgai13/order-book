@@ -11,7 +11,7 @@ bool MulticastProducer::postMessage() {
 }
 
 bool MulticastProducer::run() {
-    
+    return true;
 }
 
 void MulticastProducer::stop() {

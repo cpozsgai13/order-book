@@ -115,6 +115,7 @@ bool TCPSender::run() {
 
   }
   std::cout << "Sender stopped" << std::endl;
+  return true;
 }
 
 void TCPSender::start() {

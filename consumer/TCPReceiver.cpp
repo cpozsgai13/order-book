@@ -113,6 +113,7 @@ bool TCPReceiver::run() {
     }
     //std::cout << "Receiver done running" << std::endl;
     closeSocket();
+    return true;
 }
 
 void TCPReceiver::start() {

@@ -1,7 +1,6 @@
 #ifndef _TCP_RECEIVER_H_
 #define _TCP_RECEIVER_H_
 
-#include "BaseConsumer.h"
 #include "CoreMessages.h"
 #include <string>
 #include <atomic>
@@ -11,7 +10,7 @@
 
 namespace MarketData
 {
-class TCPReceiver : public BaseConsumer<TCPReceiver> {
+class TCPReceiver {
     static constexpr size_t BUFFER_SIZE = 1500;
 public:
     TCPReceiver(const std::string& address, int port, std::queue<Packet>& output, 

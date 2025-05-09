@@ -4,8 +4,10 @@ OBJ := $(SRC:.cpp=.o)
 CC := g++
 CXXFLAGS := --std=c++17 -Wextra -I../ -I../messages -I../utils
 
+# DEBUG_FLAGS = -g -O0 -DDEBUG -fsanitize=address -fsanitize=undefined -fno-omit-frame-pointer
 DEBUG_FLAGS = -g -O0 -DDEBUG
-RELEASE_FLAGS = -O3 -DNDEBUG
+#RELEASE_FLAGS = -O3 -DNDEBUG -fsanitize=address -fsanitize=undefined -fno-omit-frame-pointer
+RELEASE_FLAGS = -O3 -DNDEBUG 
 
 debug: CXXFLAGS += $(DEBUG_FLAGS)
 debug: all

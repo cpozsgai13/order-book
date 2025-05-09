@@ -5,7 +5,9 @@ CC := g++
 CXXFLAGS := --std=c++17 -Wextra -I../messages -I../ -I../utils
 
 DEBUG_FLAGS = -g -O0 -DDEBUG
-RELEASE_FLAGS = -O3 -DNDEBUG
+# DEBUG_FLAGS = -g -O0 -DDEBUG -fsanitize=address -fsanitize=undefined -fno-omit-frame-pointer
+#RELEASE_FLAGS = -O3 -DNDEBUG -fsanitize=address -fsanitize=undefined -fno-omit-frame-pointer
+RELEASE_FLAGS = -O3 -DNDEBUG 
 
 debug: CXXFLAGS += $(DEBUG_FLAGS)
 debug: all

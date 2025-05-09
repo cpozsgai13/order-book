@@ -1,7 +1,6 @@
 #ifndef _TCP_SENDER_H_
 #define _TCP_SENDER_H_
 
-#include "BaseProducer.h"
 #include <cstdint>
 #include <cstddef>
 #include <string>
@@ -14,8 +13,7 @@
 
 namespace MarketData 
 {
-
-class TCPSender : public BaseProducer<TCPSender> {
+class TCPSender {
     static constexpr size_t BUFFER_SIZE = 1500;
 public:
 	TCPSender(uint16_t send_port);

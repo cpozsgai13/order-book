@@ -25,12 +25,6 @@ struct Trade
 };
 using Trades = std::vector<Trade>;
 
-// std::ostream& operator<<(std::ostream& os, const Trade& trade)
-// {
-//     os << "TRADE " << trade.bid_side.order_id << " " << trade.bid_side.price << " " << trade.bid_side.quantity \
-//         << " " << trade.ask_side.order_id << " " << trade.bid_side.price << " " << trade.bid_side.quantity;
-//     return os;
-// }
-
+std::ostream& operator<<(std::ostream& os, const Trade& trade);
 }
 #endif

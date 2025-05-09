@@ -31,7 +31,6 @@ struct Power {
     T value;
 };
 
-
 //  Representation of a price with a fixed number
 //  of decimal places.  
 //  For example, to represent the price 100.0243
@@ -61,11 +60,12 @@ public:
     FixedPrecisionPrice& operator=(const FixedPrecisionPrice& other) {
         value = other.value;
         divisor = Power<T, Places>(10)();
+        places = Places;
         return *this;
     }
 
     bool operator==(const FixedPrecisionPrice& other) {
-        return value == other.value;
+        return value == other.value && places == other.places;
     }
 
     operator double() const {
@@ -85,11 +85,11 @@ private:
     T divisor{0};
 };
 
-// template<typename T, int Places>
-// struct hash<FixedPrecisionPrice<T, Places>> {
-//     size_t operator()(const FixedPrecisionPrice<T, Price>& key) const {
-//         return hash<T>()(key.rawValue);
-//     }
-// };
+template<typename T, int Places>
+struct KeyHash {
+    size_t operator()(const FixedPrecisionPrice<T, Places>& key) const {
+        return std::hash<T>()(key.rawValue());
+    }
+};
 
 #endif

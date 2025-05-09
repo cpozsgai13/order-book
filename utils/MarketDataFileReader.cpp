@@ -353,7 +353,7 @@ bool symbolFromString(const std::string& input_string, CoreMessage& coreMessage)
     std::string sym = input_string.substr(start_pos);
 
     uint64_t creation_time_ns = std::chrono::system_clock::now().time_since_epoch().count();
-    coreMessage.data.symbol = {sym, id, price};
+    coreMessage.data.symbol = {sym, id, fp};
     coreMessage.data.symbol.data_type = DataType::SYMBOL;
     return true;
 }

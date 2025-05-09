@@ -19,7 +19,7 @@ bool ExchangeOrderBook::AddNewOrder(InstrumentID inst_id, AddOrder& order) {
     return false;
   }
   auto now = std::chrono::system_clock::now().time_since_epoch().count();
-  return iter->second->AddOrder(std::make_shared<Order>(order.order_type, order.side, order.order_id, order.price.rawValue(),
+  return iter->second->AddOrder(std::make_shared<Order>(order.order_type, order.side, order.order_id, order.price,
     order.quantity, now));
 }
 
@@ -41,10 +41,17 @@ bool ExchangeOrderBook::CancelOrder(InstrumentID inst_id, OrderID orderID) {
   return iter->second->CancelOrder(orderID);
 }
 
+void ExchangeOrderBook::PrintAll() {
+  for(const auto& [key, value]: symbol_map) {
+    std::cout << "PRINT " << key << std::endl;
+    PrintBook(key);
+  }
+}
 bool ExchangeOrderBook::PrintBook(const std::string& symbol) {
   //  Get inst_id from symbol.
   auto iter = symbol_map.find(symbol);
   if(iter == symbol_map.end()) {
+    std::cout << "Symbol not found: " << symbol << std::endl;
     return false;
   }
 
@@ -52,9 +59,12 @@ bool ExchangeOrderBook::PrintBook(const std::string& symbol) {
 
   auto book_iter = instrument_map.find(inst_id);
   if(book_iter == instrument_map.end()) {
+    std::cout << "Book not found for " << symbol << std::endl;
     return false;
   }
   book_iter->second->Print();
+
+  return true;
 }
 
 

@@ -32,11 +32,7 @@ void ExchangeDataProcessor::processSymbol(CoreMessage& cm) {
 	Symbol& symbol = (Symbol&)cm.data;
 
 	InstrumentID inst_id = symbol.instrument_id;
-
-	//exchange_order_book.
-
 	std::string inst = formatText(symbol.symbol, SYMBOL_MAX_LEN);
-	std::cout << "Got symbol: " << inst << " with last_price: " << (double)symbol.last_price << std::endl;
 	exchange_order_book.AddUpdateSymbol(symbol);
 }
 
@@ -46,7 +42,6 @@ void ExchangeDataProcessor::processAddOrder(CoreMessage& cm) {
 		exchange_order_book.AddNewOrder(order.instrument_id, order);
 	} else {
 		perf_counter.addStat(CallAndMeasure(&ExchangeOrderBook::AddNewOrder, &exchange_order_book, order.instrument_id, order));
-		//add_stats.push_back(CallAndMeasure(&ExchangeOrderBook::AddNewOrder, &exchange_order_book, order.instrument_id, order));
 	}
 }
 
@@ -56,7 +51,6 @@ void ExchangeDataProcessor::processUpdateOrder(CoreMessage& cm) {
 		exchange_order_book.UpdateOrder(order.instrument_id, order);
 	} else {
 		perf_counter.updateStat(CallAndMeasure(&ExchangeOrderBook::UpdateOrder, &exchange_order_book, order.instrument_id, order));
-		//update_stats.push_back(CallAndMeasure(&ExchangeOrderBook::UpdateOrder, exchange_order_book, order.instrument_id, order));
 	}
 }
 
@@ -66,7 +60,6 @@ void ExchangeDataProcessor::processCancelOrder(CoreMessage& cm) {
 		exchange_order_book.CancelOrder(cancel.instrument_id, cancel.order_id);
 	} else {
 		perf_counter.cancelStat(CallAndMeasure(&ExchangeOrderBook::CancelOrder, &exchange_order_book, cancel.instrument_id, cancel.order_id));
-		//cancel_stats.push_back(CallAndMeasure(&ExchangeOrderBook::CancelOrder, &exchange_order_book, cancel.instrument_id, cancel.order_id));
 	}
 }
 
@@ -81,6 +74,7 @@ void ExchangeDataProcessor::stop() {
   running.store(false);
   cond.notify_one();
 
+  exchange_order_book.PrintAll();
   if(measuring) {
 	perf_counter.printStats();
   }
@@ -92,7 +86,6 @@ bool ExchangeDataProcessor::run() {
       std::unique_lock<std::mutex> lock(m);
       cond.wait(lock, [this]{return running.load();});
     }
-    //std::cout << "Processor signaled to start" << std::endl;
 
 	while(running.load()) {
 		std::unique_lock<std::mutex> lock(m);
@@ -105,8 +98,6 @@ bool ExchangeDataProcessor::run() {
 
 		auto packet = packet_queue.front();
 		packet_queue.pop();
-		//logHexI(packet.data.buffer, packet.header.total_length);
-		// std::cout << ss.str() << std::endl;
 		if(packet.GetSize()) {
 			std::cout << "ExchangeDataProcessor received packet of size " << packet.GetSize() << std::endl;
 			processPacket(std::move(packet));
@@ -130,10 +121,6 @@ void ExchangeDataProcessor::processPacket(Packet&& packet) {
 		}
 
 	}
-	//std::cout << "processPacket " << packet.header.total_length << std::endl;
-	// for(const auto& message: packet.messages) {
-		
-	// }
 }
 
 }

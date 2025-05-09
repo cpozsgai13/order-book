@@ -1,7 +1,6 @@
 #ifndef _MULTICAST_RECEIVER_H_
 #define _MULTICAST_RECEIVER_H_
 
-#include "BaseConsumer.h"
 #include "CoreMessages.h"
 #include <string>
 #include <atomic>
@@ -11,7 +10,7 @@
 
 namespace MarketData
 {
-class MulticastReceiver : public BaseConsumer<MulticastReceiver> {
+class MulticastReceiver {
     static constexpr size_t BUFFER_SIZE = 1500;
 public:
     MulticastReceiver(const std::string& interface, int port, 

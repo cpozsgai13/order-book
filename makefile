@@ -1,7 +1,7 @@
 
 SUBDIRS := producer consumer messages utils
 PROG := OrderBookApp
-SRC := ExchangeOrderBook.cpp ExchangeDataProcessor.cpp OrderBook.cpp main.cpp
+SRC := ExchangeOrderBook.cpp ExchangeDataProcessor.cpp OrderBook.cpp Trade.cpp main.cpp
 
 OBJS := $(SRC:.cpp=.o)
 PRODUCER_OBJS := producer/MulticastProducer.o producer/MulticastSender.o producer/TCPSender.o
@@ -10,10 +10,12 @@ UTIL_OBJS := utils/MarketDataFileReader.o utils/PerformanceCounter.o
 
 CC := g++
 CXXFLAGS := -Wextra -I. -I./messages -I./utils -I./producer -I./consumer
-LIBS := -lboost_system -lrt -lpthread 
+LIBS := -lboost_system -lrt -lpthread
 
-DEBUG_FLAGS = -g -O0 -DDEBUG
-RELEASE_FLAGS = -O3 -DNDEBUG -Wall
+DEBUG_FLAGS = -g -O0 -DDEBUG 
+# DEBUG_FLAGS = -g -O0 -DDEBUG -fsanitize=address -fsanitize=undefined -fno-omit-frame-pointer
+#RELEASE_FLAGS = -O3 -DNDEBUG -Wall -fsanitize=address -fsanitize=undefined -fno-omit-frame-pointer
+RELEASE_FLAGS = -O3 -DNDEBUG 
 
 debug: CXXFLAGS += $(DEBUG_FLAGS)
 debug: PROG = OrderBookAppDebug
@@ -24,6 +26,7 @@ release: all
 #OBJ := $(patsubst %.o,utils/%.o,producer/%.o,consumer/%.o)
 
 all:  root subdirs
+	$(info "CXXFLAGS = $(CXXFLAGS)")
 	$(CC) $(CXXFLAGS) $(OBJS) $(PRODUCER_OBJS) $(CONSUMER_OBJS) $(UTIL_OBJS) $(LIBS) -o $(PROG)
 
 root: $(OBJS)

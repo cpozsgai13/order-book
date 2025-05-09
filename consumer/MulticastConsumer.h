@@ -1,8 +1,7 @@
 #ifndef _MULTICAST_CONSUMER_H_
 #define _MULTICAST_CONSUMER_H_
 
-#include "BaseConsumer.h"
-class MulticastConsumer: public BaseConsumer<MulticastConsumer> {
+class MulticastConsumer {
 public:
     MulticastConsumer();
     ~MulticastConsumer();

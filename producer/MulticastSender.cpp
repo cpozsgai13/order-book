@@ -123,6 +123,7 @@ bool MulticastSender::run() {
 
   }
   std::cout << "Sender stopped" << std::endl;
+  return true;
 }
 
 void MulticastSender::start() {

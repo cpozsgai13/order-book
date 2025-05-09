@@ -20,7 +20,7 @@ public:
         order_type(t),
         side(s),
         order_id(oid),
-        price(p),
+        price(p.rawValue()),
         initial_quantity(q),
         remaining_quantity(q),
         creation_time_ns(time)
@@ -42,7 +42,7 @@ public:
         return order_id;
     }
 
-    FixedPrecisionPrice<uint64_t, 6> GetPrice() const
+    Price GetPrice() const
     {
         return price;
     }
@@ -88,7 +88,7 @@ private:
     OrderType order_type;
     Side side;
     OrderID order_id;
-    FixedPrecisionPrice<uint64_t, 6> price;
+    Price price;
     Quantity initial_quantity;
     Quantity remaining_quantity;
     Timestamp creation_time_ns;

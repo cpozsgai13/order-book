@@ -22,9 +22,10 @@ enum class DataType : uint8_t {
   INVALID = 6
 };
 
+
 constexpr size_t SYMBOL_MAX_LEN = 20;
 constexpr size_t PRICE_LEN = sizeof(FixedPrecisionPrice<uint64_t, 6>);
-constexpr size_t SYMBOL_SIZE = SYMBOL_MAX_LEN + PRICE_LEN ;
+constexpr size_t SYMBOL_SIZE = SYMBOL_MAX_LEN + PRICE_LEN;
 
 const auto formatText=[](char *buffer, size_t max_len = SYMBOL_MAX_LEN) -> std::string {
 	std::string ret;
@@ -36,7 +37,6 @@ const auto formatText=[](char *buffer, size_t max_len = SYMBOL_MAX_LEN) -> std::
 	return ret;
 };
 
-#pragma pack(push, 1)
 struct Header {
     uint16_t num_messages{0};
     uint16_t total_length{sizeof(Header)};
@@ -59,10 +59,12 @@ struct Symbol {
         memset(symbol, 0, SYMBOL_MAX_LEN);
     }
     ~Symbol() = default;
-    Symbol(const Symbol& s) = default;
+    Symbol(const Symbol& s) {
+        *this = s;
+    }
     Symbol(const std::string& sym, InstrumentID id, FixedPrecisionPrice<uint64_t, 6> price):
     instrument_id(id),
-    last_price(price)
+    last_price(price.rawValue())
     {
       memset(symbol, 0, SYMBOL_MAX_LEN);
       strncpy(symbol, sym.c_str(), sym.length());
@@ -72,6 +74,7 @@ struct Symbol {
       memset(symbol, 0, SYMBOL_MAX_LEN);
       strncpy(symbol, s.symbol, SYMBOL_MAX_LEN);
       last_price = s.last_price;
+      return *this;
     }
     DataType data_type{DataType::SYMBOL};
     char symbol[SYMBOL_MAX_LEN];
@@ -88,7 +91,7 @@ struct AddOrder {
         instrument_id(inst_id),
         order_id(oid),
         side(s),
-        price(p),
+        price(p.rawValue()),
         quantity(q),
         update_time_ns(creation_time_ns)
     {
@@ -115,7 +118,7 @@ struct ModifyOrder {
         order_id(oid),
         instrument_id(inst_id),
         side(s),
-        price(p),
+        price(p.rawValue()),
         quantity(q),
         update_time_ns(creation_time_ns)
     {
@@ -126,7 +129,7 @@ struct ModifyOrder {
     }
 
     RawPrice ToPrice() const {
-        return price.rawValue();
+        return price;
     }
     DataType data_type{DataType::UPDATE_ORDER};
     InstrumentID instrument_id{0};
@@ -162,7 +165,7 @@ struct TradeExecution {
     InstrumentID instrument_id{0};
 };
 
-struct alignas(CACHE_LINE_SIZE) CoreMessage {
+struct CoreMessage {
     CoreMessage() = default;
     ~CoreMessage() {
 
@@ -187,7 +190,6 @@ struct alignas(CACHE_LINE_SIZE) CoreMessage {
 };
 
 struct alignas(CACHE_LINE_SIZE) Packet {
-//struct Packet {
     Header header;
     struct PacketStruct {
         CoreMessage messages[(MAX_PACKET_SIZE - sizeof(Header))/sizeof(CoreMessage)];
@@ -265,19 +267,9 @@ struct alignas(CACHE_LINE_SIZE) Packet {
         }
         packet.header = *reinterpret_cast<Header*>(buffer);
         memcpy(&packet.header, buffer, len);
-        // char *data = buffer + sizeof(header);
-        // auto num_messages = header.num_messages;
-        // for(size_t i = 0; i < num_messages; ++i) {
-        //     CoreMessage *msg = (CoreMessage *)data;
-        //     //messages.push_back(*msg);
-        //     data += sizeof(CoreMessage);
-        // }
-        //std::cout << "Created packet with " << num_messages << " from buffer of length " << header.total_length << std::endl;
         return true;
     }
 };
-
-#pragma pack(pop)
 
 struct SymbolComp {
     bool operator()(const Symbol& s1, const Symbol& s2) {
@@ -296,8 +288,6 @@ struct AddOrderComp {
         return s1.instrument_id == s2.instrument_id && s1.order_id == s2.order_id;
     }
 };
-
-//struct Packet {
 
 }
 

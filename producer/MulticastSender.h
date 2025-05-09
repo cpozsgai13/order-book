@@ -1,7 +1,6 @@
 #ifndef _MULTICAST_SENDER_H_
 #define _MULTICAST_SENDER_H_
 
-#include "BaseProducer.h"
 #include <cstdint>
 #include <cstddef>
 #include <string>
@@ -15,7 +14,7 @@
 namespace MarketData 
 {
 
-class MulticastSender : public BaseProducer<MulticastSender> {
+class MulticastSender {
     static constexpr size_t BUFFER_SIZE = 1500;
 public:
 	MulticastSender(const std::string& ip, uint16_t send_port);

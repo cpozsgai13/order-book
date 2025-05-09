@@ -6,7 +6,6 @@
 #include <unordered_map>
 #include <string.h>
 #include <string>
-#include <boost/container/flat_map.hpp>
 
 namespace MarketData
 {
@@ -24,9 +23,6 @@ class ExchangeOrderBook {
 public:
     ExchangeOrderBook(const std::string& name);
     ~ExchangeOrderBook() = default;
-    // bool AddOrderBook(const FlatString& key, OrderBook&& order_book) {
-    //     instrument_map[key] = order_book;
-    // }
 
     bool AddNewOrder(InstrumentID inst_id, AddOrder& order);
 
@@ -37,8 +33,9 @@ public:
     bool AddUpdateSymbol(Symbol& symbol);
 
     bool PrintBook(const std::string& symbol);
+    void PrintAll();
 private:
-    boost::container::flat_map<InstrumentID, std::shared_ptr<OrderBook>> instrument_map;
+    std::unordered_map<InstrumentID, std::shared_ptr<OrderBook>> instrument_map;
     std::unordered_map<std::string, InstrumentID> symbol_map;
     std::string exchange_name;
 };
