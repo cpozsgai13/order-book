@@ -12,7 +12,7 @@ public:
     FileReader() = default;
     ~FileReader() = default;
 
-    bool loadFile(const std::string& path, std::vector<Packet>& packets);
+    std::vector<Packet> loadDataFile(const std::string& path);
 };
 
 }

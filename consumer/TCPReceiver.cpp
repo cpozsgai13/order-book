@@ -18,7 +18,7 @@
 namespace MarketData
 {
 
-TCPReceiver::TCPReceiver(const std::string& addr, int listen_port, std::queue<Packet>& output, 
+TCPReceiver::TCPReceiver(const std::string& addr, int listen_port, RingBufferSPSC<MarketData::Packet, RING_BUFFER_SIZE>& output, 
   std::mutex& mut, std::condition_variable& cnd):
   address(addr),
   port(listen_port),
@@ -27,6 +27,7 @@ TCPReceiver::TCPReceiver(const std::string& addr, int listen_port, std::queue<Pa
   cond(cnd)
 {
 }
+
 
 bool TCPReceiver::openSocket() {
 	sockfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -69,81 +70,74 @@ bool TCPReceiver::run() {
     {
         return false;
     }
-    //std::cout << "TCP receiver connected - waiting for start signal" << std::endl;
+    std::cout << "TCP receiver connected - waiting for start signal" << std::endl;
     
 
     //  Wait until started
     {
-      std::unique_lock<std::mutex> lock(m);
-      cond.wait(lock, [this]{return running.load();});
+      std::unique_lock<std::mutex> lock(mut_run);
+      cond_run.wait(lock, [this]{return running.load();});
     }
-    //std::cout << "TCP receiver signaled to start" << std::endl;
+    std::cout << "TCP receiver signaled to start" << std::endl;
 
     while(running.load()) {
-      int bytes = recv(sockfd, buffer, sizeof(buffer), 0);
-      if(bytes == 0) {
-          continue;
-      } else if(bytes < 0) {
-          continue;
-          //running.store(false);
-          //break;            
-      }
-
-
+      //int bytes = recv(sockfd, buffer, sizeof(buffer), 0);
+      int bytes = recv(sockfd, buffer, sizeof(Header), 0);
       if(!running) {
         break;
       }
 
+      if(bytes == 0) {
+          continue;
+      } else if(bytes < 0) {
+          continue;
+      }
+      Header *header = reinterpret_cast<Header *>(buffer);
+      if(header->num_messages == 0) {
+        continue;
+      }
+      int bytes_remaining = header->total_length - sizeof(Header);
+      int bytes_recvd_remaining = recv(sockfd, buffer + sizeof(Header), bytes_remaining, 0);
+
+      if(bytes_recvd_remaining != bytes_remaining) {
+        std::cout << "Invalid read size of remaining bytes: " << bytes << std::endl;
+        continue;
+      }
+
+      bytes += bytes_remaining;
+      if(bytes > static_cast<int>(sizeof(buffer))) {
+        std::cout << "TCP invalid read size " << bytes << std::endl;
+        continue;
+      }
 
       Packet packet;
       if(Packet::FromBuffer(buffer, bytes, packet)) {
-          // auto ss = logHex(buffer, bytes);
-          //logHexI(buffer, bytes);
-
-          // std::cout << ss.str();
           std::lock_guard<std::mutex> lock(m);
-          output_message_queue.push(packet);
-          cond.notify_all();
-          //std::cout << "TCP enqueued packet " << packet.GetSize() << std::endl;
-
-          //processMessage(packet));
-      } else {
-        std::cout << "Failed to create packet from buffer" << std::endl;
+          if(output_message_queue.push(packet)) {
+            cond.notify_all();
+          }
       }
     }
-    //std::cout << "Receiver done running" << std::endl;
     closeSocket();
     return true;
 }
 
 void TCPReceiver::start() {
-  std::lock_guard<std::mutex> lock(m);
+  std::lock_guard<std::mutex> lock(mut_run);
   running.store(true);
-  cond.notify_one();
-  //std::cout << "Receiver started" << std::endl;
+  cond_run.notify_one();
 }
 
 void TCPReceiver::stop() {
-  std::lock_guard<std::mutex> lock(m);
+  std::lock_guard<std::mutex> lock(mut_run);
   running.store(false);
-  cond.notify_one();
+  cond_run.notify_one();
 }
 
 bool TCPReceiver::closeSocket() {
   close(sockfd);
   return true;
 }
-
-// bool TCPReceiver::processMessage(Packet&& packet) {
-//   std::cout << "TCP receiver enqueing packet: " << packet.header.total_length << std::endl;
-//   logHexI(packet.data.buffer, packet.header.total_length);
-
-//   std::lock_guard<std::mutex> lock(m);
-//   output_message_queue.emplace(packet);
-//   cond.notify_one();
-//   //std::cout << "TCP enqueued packet " << packet.GetSize() << std::endl;
-//   return true;
-// }
 
 }
 

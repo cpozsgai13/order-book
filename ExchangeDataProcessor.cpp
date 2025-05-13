@@ -12,7 +12,7 @@ namespace MarketData
 {
 
 ExchangeDataProcessor::ExchangeDataProcessor(ExchangeOrderBook& exch_order_book, 
-	std::queue<Packet>& msg_queue, std::mutex& mut, std::condition_variable& cnd): 
+	RingBufferSPSC<MarketData::Packet, RING_BUFFER_SIZE>& msg_queue, std::mutex& mut, std::condition_variable& cnd): 
 	exchange_order_book(exch_order_book),
 	packet_queue(msg_queue),
 	m(mut),
@@ -30,9 +30,6 @@ void ExchangeDataProcessor::initHandlers() {
 
 void ExchangeDataProcessor::processSymbol(CoreMessage& cm) {
 	Symbol& symbol = (Symbol&)cm.data;
-
-	InstrumentID inst_id = symbol.instrument_id;
-	std::string inst = formatText(symbol.symbol, SYMBOL_MAX_LEN);
 	exchange_order_book.AddUpdateSymbol(symbol);
 }
 
@@ -87,25 +84,21 @@ bool ExchangeDataProcessor::run() {
       cond.wait(lock, [this]{return running.load();});
     }
 
+	Packet packet;
+
 	while(running.load()) {
-		std::unique_lock<std::mutex> lock(m);
-
-		cond.wait(lock, [this]{return !running || !packet_queue.empty();});
-
 		if(!running) {
 			break;
 		}
-
-		auto packet = packet_queue.front();
-		packet_queue.pop();
-		if(packet.GetSize()) {
-			std::cout << "ExchangeDataProcessor received packet of size " << packet.GetSize() << std::endl;
-			processPacket(std::move(packet));
-		} else {
-			std::cout << "ExchangeDataProcessor received invalid packet of size " << packet.GetSize() << std::endl;
+		if(packet_queue.pop(packet))
+		{
+			if(packet.GetSize() <= UDP_BUFFER_SIZE) {
+				processPacket(std::move(packet));
+			} else {
+				std::cout << "ExchangeDataProcessor received invalid packet of size " << packet.GetSize() << std::endl;
+			}
 		}
 	}
-    std::cout << "Processor left main run loop" << std::endl;
 	return true;
 }
 

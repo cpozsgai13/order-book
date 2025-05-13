@@ -10,6 +10,7 @@
 #include "CoreMessages.h"
 #include <mutex>
 #include <condition_variable>
+#include "ring_buffer_spsc.hpp"
 
 namespace MarketData 
 {
@@ -26,7 +27,7 @@ public:
 	bool closeSocket();
 	bool enqueue(Packet& packet);
 private:
-	std::queue<Packet> message_queue;
+	RingBufferSPSC<MarketData::Packet, RING_BUFFER_SIZE> message_queue;
 
 	uint16_t port;
     char buffer[BUFFER_SIZE];

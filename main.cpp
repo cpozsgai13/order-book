@@ -2,6 +2,7 @@
 #include <functional>
 #include <algorithm>
 #include <numeric>
+#include "CoreMessages.h"
 #include "ExchangeOrderBook.h"
 #include "ExchangeDataProcessor.h"
 #include "MarketDataFileReader.h"
@@ -14,6 +15,8 @@
 #include <fstream>
 #include <tuple>
 #include <thread>
+#include <string>
+#include "ring_buffer_spsc.hpp"
 #include "TCPSender.h"
 #include "TCPReceiver.h"
 
@@ -84,7 +87,7 @@ const auto processMarketDataInputLine=[](std::string& line, ExchangeOrderBook& e
         }
         case Actions::CANCEL:
         {
-            OrderID order_id;
+            //OrderID order_id;
             // if(fromString(line, order_id))
             // {
             //     cancel_stats.push_back(CallAndMeasure(&OrderBook::CancelOrder, &engine, order_id));
@@ -114,13 +117,8 @@ auto parseIniFile=[](const char *path) -> boost::property_tree::ptree {
 
 int main(int argc, char *argv[])
 {
-    std::vector<Packet> symbol_packets, message_packets;
-    symbol_packets.reserve(10);
-    message_packets.reserve(100);
     std::string send_interface;
-    uint16_t send_port = 0;
     std::string recv_interface, recv_multicast;
-    uint16_t recv_port = 0;
     std::shared_ptr<TCPSender> producer;
     std::shared_ptr<TCPReceiver> consumer;
     std::shared_ptr<ExchangeDataProcessor> exchange_processor;
@@ -140,7 +138,6 @@ int main(int argc, char *argv[])
         }
 
         symbol_file = properties.get<std::string>("symbol_file");
-        //data_file = properties.get<std::string>("market_data_file");
         auto files_str = properties.get<std::string>("market_data_files");
         if(!files_str.empty()) {
             auto start_pos = 0;
@@ -171,32 +168,37 @@ int main(int argc, char *argv[])
     }
 
     MarketData::FileReader reader;
-    if(reader.loadFile(symbol_file, symbol_packets)) {
-        size_t symbol_msg_count = 0;
-        for(const auto& packet: symbol_packets) {
-            symbol_msg_count += packet.header.num_messages;
-        }
-        std::cout << "Loaded " << symbol_packets.size() << ", symbols: " << symbol_msg_count << endl;
-    } else {
+    auto symbol_packets = reader.loadDataFile(symbol_file);
+    if(symbol_packets.empty()) {
         std::cout << "Failed to load symbol data" << endl;
         return 1;
     }
+    size_t symbol_msg_count = 0;    
+    for(const auto& packet: symbol_packets) {
+        symbol_msg_count += packet.header.num_messages;
+    }
+    std::cout << "Loaded " << symbol_packets.size() << ", symbols: " << symbol_msg_count << endl;
 
+
+    std::vector<Packet> message_packets;
+    size_t md_msg_count = 0;
     for(const auto& data_file: data_files) {
-        if(reader.loadFile(data_file, message_packets)) {
-            size_t md_msg_count = 0;
-            for(const auto& packet: message_packets) {
-                md_msg_count += packet.header.num_messages;
-            }
-        } else {
-            std::cout << "Failed to load message data" << endl;
-            return 1;
+        auto&& packets = reader.loadDataFile(data_file);
+        for(const auto& packet: packets) {
+            md_msg_count += packet.header.num_messages;
+            message_packets.push_back(packet);
         }
     }
-    std::cout << "Loaded " << message_packets.size() << "packets, messages: " << message_packets.size() << endl;
+
+    for(const auto& data_file: data_files) {
+        auto&& packets = reader.loadDataFile(data_file);
+        message_packets.reserve(message_packets.size() + packets.size());
+        std::copy(packets.begin(), packets.end(), std::back_inserter(message_packets));
+    }
+    std::cout << "Loaded " << message_packets.size() << "packets, messages: " << md_msg_count << endl;
 
     ExchangeOrderBook exchange_order_engine{exchange_name};
-    std::queue<Packet> tcp_message_queue;
+    RingBufferSPSC<Packet, RING_BUFFER_SIZE> tcp_message_queue;
     std::mutex tcp_queue_mutex;
     std::condition_variable tcp_queue_cond;
 
@@ -204,13 +206,9 @@ int main(int argc, char *argv[])
     producer = std::make_shared<TCPSender>(producer_port);
     consumer = std::make_shared<TCPReceiver>(consumer_ip, consumer_port, tcp_message_queue, tcp_queue_mutex, tcp_queue_cond);
 
-
     //  Start the exchange processor.
     std::thread processor_thread(&ExchangeDataProcessor::run, exchange_processor);
     exchange_processor->start();
-
-    //  The consumer will populate a queue from which the processor will pull packets, and
-    //  submit to the ExchangeOrderBook for processing.
 
     std::thread producer_thread(&TCPSender::run, producer);
 
@@ -226,7 +224,6 @@ int main(int argc, char *argv[])
     //  Start a consumer and a producer.
     std::thread consumer_thread(&TCPReceiver::run, consumer);
     consumer->start();
-
 
     //  Import the non-symbol data.
     while(!message_packets.empty()) {
@@ -258,4 +255,5 @@ int main(int argc, char *argv[])
     exchange_processor->stop();
     processor_thread.join();
 
+    return 0;
 }

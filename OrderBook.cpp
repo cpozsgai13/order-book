@@ -92,7 +92,7 @@ OrderBook::OrderBook()
 
 OrderBook::~OrderBook()
 {
-    std::cout << "OrderBook " << this << " deleted" << std::endl;
+    //std::cout << "OrderBook " << this << " deleted" << std::endl;
 }
 
 bool OrderBook::AddOrder(OrderPtr order)
@@ -124,7 +124,6 @@ bool OrderBook::AddOrder(OrderPtr order)
 
         //  There are no orders at this price.
         if(orders.empty()) {
-            // bid_volume_map.insert(std::make_pair(price.rawValue(), q));
             bid_volume_map.insert(std::make_pair(price, q));
         } else {
             //  Lookup the price and add the volume.
@@ -416,7 +415,7 @@ void OrderBook::Print()
         std::cout << ss.str() << std::endl;
         auto bid_iter = begin(bid_queue_map);   
         auto ask_iter = begin(ask_queue_map);
-        for(size_t i = 0; i < book_size; ++i) {
+        for(int i = 0; i < book_size; ++i) {
             ss.str("");
             if(i < bid_book_size) {
                 auto bid_price = bid_iter->first;

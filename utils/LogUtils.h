@@ -10,7 +10,7 @@ const auto logHex=[](const char *buffer, size_t len) -> std::stringstream {
   auto num_lines = len / bytes_per_line + (len % bytes_per_line > 0);
 
   std::stringstream ss;
-  for(int i = 0; i < num_lines; ++i) {
+  for(size_t i = 0; i < num_lines; ++i) {
 
     int bytes_this_line = i < num_lines - 1 ? bytes_per_line : len % bytes_per_line;
     for(int j = 0; j < bytes_this_line; ++j) {
@@ -27,7 +27,7 @@ const auto logHexI=[](const char *buffer, size_t len) {
 
   auto num_lines = len / bytes_per_line + (len % bytes_per_line > 0);
 
-  for(int i = 0; i < num_lines; ++i) {
+  for(size_t i = 0; i < num_lines; ++i) {
 
     int bytes_this_line = i < num_lines - 1 ? bytes_per_line : len % bytes_per_line;
     for(int j = 0; j < bytes_this_line; ++j) {
@@ -42,7 +42,7 @@ const auto logHexC=[](const char *buffer, size_t len) {
 
   auto num_lines = len / bytes_per_line + (len % bytes_per_line > 0);
 
-  for(int i = 0; i < num_lines; ++i) {
+  for(size_t i = 0; i < num_lines; ++i) {
 
     int bytes_this_line = i < num_lines - 1 ? bytes_per_line : len % bytes_per_line;
     for(int j = 0; j < bytes_this_line; ++j) {

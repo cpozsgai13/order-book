@@ -5,6 +5,7 @@
 #include <memory>
 #include <list>
 #include "FixedPrecisionPrice.h"
+#include "Constants.h"
 namespace MarketData
 {
 using InstrumentID = uint64_t;

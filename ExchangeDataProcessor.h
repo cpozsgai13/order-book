@@ -9,6 +9,7 @@
 #include <mutex>
 #include <condition_variable>
 #include <functional>
+#include "ring_buffer_spsc.hpp"
 
 namespace MarketData
 {
@@ -17,7 +18,7 @@ namespace MarketData
 class ExchangeDataProcessor {
 public:    
     ExchangeDataProcessor(ExchangeOrderBook& exch_order_book, 
-        std::queue<Packet>& msg_queue, std::mutex& mut, std::condition_variable& cnd);
+        RingBufferSPSC<MarketData::Packet, RING_BUFFER_SIZE>& msg_queue, std::mutex& mut, std::condition_variable& cnd);
     ~ExchangeDataProcessor() = default;
 
     void start();
@@ -26,7 +27,7 @@ public:
 
 private:
     ExchangeOrderBook& exchange_order_book;
-    std::queue<Packet>& packet_queue;
+    RingBufferSPSC<MarketData::Packet, RING_BUFFER_SIZE>& packet_queue;
     std::atomic_bool running{false};
     std::mutex& m;
     std::condition_variable& cond;

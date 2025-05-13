@@ -2,7 +2,7 @@
 #define _TRADE_H_
 
 #include "MarketDataDefinitions.h"
-#include "FixedPrecisionPrice.h"
+#include "CoreMessages.h"
 namespace MarketData
 {
 struct TradeSide

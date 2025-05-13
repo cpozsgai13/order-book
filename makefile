@@ -12,10 +12,8 @@ CC := g++
 CXXFLAGS := -Wextra -I. -I./messages -I./utils -I./producer -I./consumer
 LIBS := -lboost_system -lrt -lpthread
 
-DEBUG_FLAGS = -g -O0 -DDEBUG 
-# DEBUG_FLAGS = -g -O0 -DDEBUG -fsanitize=address -fsanitize=undefined -fno-omit-frame-pointer
-#RELEASE_FLAGS = -O3 -DNDEBUG -Wall -fsanitize=address -fsanitize=undefined -fno-omit-frame-pointer
-RELEASE_FLAGS = -O3 -DNDEBUG 
+DEBUG_FLAGS = -std=c++17 -g -O0 -DDEBUG -fsanitize=address -fsanitize=undefined -fno-omit-frame-pointer
+RELEASE_FLAGS =  -std=c++17 -O3 -DNDEBUG -Wall -fsanitize=address -fsanitize=undefined -fno-omit-frame-pointer
 
 debug: CXXFLAGS += $(DEBUG_FLAGS)
 debug: PROG = OrderBookAppDebug

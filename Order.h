@@ -2,16 +2,15 @@
 #define _ORDER_H_
 
 #include "MarketDataDefinitions.h"
+#include "CoreMessages.h"
 #include <vector>
-#include <queue>
 #include <memory>
 #include <list>
 #include <type_traits>
-#include <cmath>
 
 namespace MarketData
 {
-
+using Price = FixedPrecisionPrice<RawPrice, 6>;
 
 class Order
 {

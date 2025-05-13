@@ -28,8 +28,6 @@ bool ExchangeOrderBook::UpdateOrder(InstrumentID inst_id, ModifyOrder& order) {
   if(iter == instrument_map.end()) {
     return false;
   }
-  auto order_id = order.order_id;
-
   return iter->second->UpdateOrder(order);
 }
 
@@ -42,9 +40,9 @@ bool ExchangeOrderBook::CancelOrder(InstrumentID inst_id, OrderID orderID) {
 }
 
 void ExchangeOrderBook::PrintAll() {
-  for(const auto& [key, value]: symbol_map) {
-    std::cout << "PRINT " << key << std::endl;
-    PrintBook(key);
+  for(auto const& iter: symbol_map) {
+    std::cout << "PRINT " << iter.first << std::endl;
+    PrintBook(iter.first);
   }
 }
 bool ExchangeOrderBook::PrintBook(const std::string& symbol) {

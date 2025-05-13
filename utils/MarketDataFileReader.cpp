@@ -267,7 +267,7 @@ bool orderFromString(const std::string& input_string, Side side, CoreMessage& co
     uint64_t creation_time_ns = std::chrono::system_clock::now().time_since_epoch().count();
 
     coreMessage.data.add_order = {order_type, id, order_id, side, fp, quantity, creation_time_ns};
-    coreMessage.data.add_order.data_type = DataType::ADD_ORDER;
+    coreMessage.data_type = DataType::ADD_ORDER;
     return true;
 }
 
@@ -325,7 +325,7 @@ bool modifyFromString(const std::string& input_string, CoreMessage& coreMessage)
 
     uint64_t creation_time_ns = std::chrono::system_clock::now().time_since_epoch().count();
     coreMessage.data.update_order = {order_id, id, side, fp, quantity, creation_time_ns};
-    coreMessage.data.update_order.data_type = DataType::UPDATE_ORDER;
+    coreMessage.data_type = DataType::UPDATE_ORDER;
     return true;
 }
 
@@ -354,20 +354,19 @@ bool symbolFromString(const std::string& input_string, CoreMessage& coreMessage)
 
     uint64_t creation_time_ns = std::chrono::system_clock::now().time_since_epoch().count();
     coreMessage.data.symbol = {sym, id, fp};
-    coreMessage.data.symbol.data_type = DataType::SYMBOL;
+    coreMessage.data_type = DataType::SYMBOL;
     return true;
 }
 
-//  Load a market data file and creates Packets.
-bool FileReader::loadFile(const std::string& path, std::vector<Packet>& packets) {
-  std::ifstream in_file(path);
-  if(!in_file.is_open()) {
-      return false;
-  }
-
+std::vector<Packet> FileReader::loadDataFile(const std::string& path) {
+    std::vector<Packet> packets;
+    std::ifstream in_file(path);
+    if(!in_file.is_open()) {
+        return packets;
+    }
   //  Read each line
   std::string line;
-  Packet cur_packet, backup_packet;
+  Packet cur_packet;
   while(std::getline(in_file, line)) {
     Actions action = parseActionLine(line);
     switch(action)
@@ -436,12 +435,13 @@ bool FileReader::loadFile(const std::string& path, std::vector<Packet>& packets)
               break;
       }
   }
-  if(cur_packet.MessageCount()) {
-      packets.push_back(cur_packet);
-  }
-  in_file.close();
-  return !packets.empty();
-}   
+    if(cur_packet.MessageCount()) {
+        packets.push_back(cur_packet);
+    }
+    in_file.close();
+
+    return packets;
+}
 
 }
 

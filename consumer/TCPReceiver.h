@@ -6,14 +6,14 @@
 #include <atomic>
 #include <mutex>
 #include <condition_variable>
-#include <queue>
+#include "ring_buffer_spsc.hpp"
 
 namespace MarketData
 {
 class TCPReceiver {
     static constexpr size_t BUFFER_SIZE = 1500;
 public:
-    TCPReceiver(const std::string& address, int port, std::queue<Packet>& output, 
+    TCPReceiver(const std::string& address, int port, RingBufferSPSC<MarketData::Packet, RING_BUFFER_SIZE>& output, 
         std::mutex& mut, std::condition_variable& cnd);
     ~TCPReceiver() = default;
 
@@ -33,7 +33,10 @@ private:
     std::atomic_bool running{false};
 	std::mutex& m;
 	std::condition_variable& cond;
-    std::queue<Packet>& output_message_queue;
+
+	std::mutex mut_run;
+	std::condition_variable cond_run;
+    RingBufferSPSC<Packet, RING_BUFFER_SIZE>& output_message_queue;
 };
 
 }

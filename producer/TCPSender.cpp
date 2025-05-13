@@ -37,6 +37,7 @@ bool TCPSender::openSocket() {
 
   if(bind(sockfd, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0)
   {
+    std::cout << "Bind to sender socket failed";
     return false;
   }
 
@@ -54,7 +55,6 @@ bool TCPSender::closeSocket() {
 bool TCPSender::enqueue(Packet& packet) {
   std::lock_guard<std::mutex> lock(m);
   message_queue.push(packet);
-  // std::cout << "Message added to multicast output queue" << std::endl;
   cond.notify_one();
 	return true;
 }
@@ -81,34 +81,25 @@ bool TCPSender::run() {
   }
   //std::cout << "Client connected to TCP sender" << std::endl;
 
-
+  Packet packet;
   while(running.load()) {
-
-    //std::cout << "Sender waiting for message" << std::endl;
-
-    std::unique_lock<std::mutex> lock(m);
-    cond.wait(lock, [this]{return !running.load() || !message_queue.empty();});
-
     if(!running.load()) {
       //std::cout << "Exiting run loop" << std::endl;
       break;
     }
 
-    auto msg = message_queue.front();
-    message_queue.pop();
-    //std::cout << "Message popped: " << msg.header.total_length << std::endl;
-
-    //  Send the packet.
-    auto sz = msg.header.total_length;
-    int sent = send(client_sockfd, (char *)&msg, sz, 0);
-    if(sent <= 0) {
-      std::cout << "Send error: " << errno << std::endl;
-    } else {
-      std::cout << "Sender sent: " << sent << std::endl;
-      //Looks reasonable
-      // logHexI((char *)&msg, sz);
+    if(message_queue.pop(packet)) {
+      //  Send the packet.
+      if(packet.header.num_messages > 0) {
+        auto sz = packet.header.total_length;
+        int sent = send(client_sockfd, (char *)&packet, sz, 0);
+        if(sent <= 0) {
+          std::cout << "Send error: " << errno << std::endl;
+        } else {
+          std::cout << "Sender sent: " << sent << std::endl;
+        }
+      }
     }
-
     if(!running) {
       break;
     }
@@ -123,6 +114,7 @@ void TCPSender::start() {
   running.store(true);
   cond.notify_one();
 }
+
 void TCPSender::stop() {
   std::lock_guard<std::mutex> lock(m);
   running.store(false);
