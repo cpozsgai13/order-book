@@ -163,6 +163,8 @@ bool OrderBook::CancelOrder(OrderID order_id)
             }
         }
     }
+
+    order_map.erase(order_id);
     return true;
 }
 
@@ -263,6 +265,13 @@ void OrderBook::MatchOrders()
                 }
             }
         }
+
+        if(bid_queue.empty()) {
+            bid_queue_map.erase(best_bid);
+        }
+        if(ask_queue.empty()) {
+            ask_queue_map.erase(best_ask);
+        }
     }
     return;
 }
@@ -303,6 +312,10 @@ void OrderBook::MatchIOCOrder(OrderPtr order) {
             }
           }
         }
+        if(ask_queue.empty()) {
+            ask_queue_map.erase(best_ask);
+        }
+
       } else if(side == Side::ASK) {
         if(bid_queue_map.empty()) {
           break;
@@ -332,8 +345,12 @@ void OrderBook::MatchIOCOrder(OrderPtr order) {
               bid_queue_map.erase(best_bid);
             }
           }        
-      }
+        }
+        if(bid_queue.empty()) {
+            bid_queue_map.erase(best_bid);
+        }
     }
+
   }
 }
 
@@ -417,14 +434,17 @@ std::ostream &operator<<(std::ostream &os, OrderBook &book)
         os << std::setw(SYMBOL_MAX_LEN) << std::setfill(' ') << "Empty book" << std::endl;
     }
 
-    if(book.trades.size())
-    {
-        std::string sep(50, '-');
-        os << sep << std::endl;
-        os << "TRADES: " << book.trades.size()  << std::endl;
-        for(const auto& trade: book.trades)
+    bool print_trades = false;
+    if(print_trades) {
+        if(book.trades.size())
         {
-            printTrade(trade);
+            std::string sep(50, '-');
+            os << sep << std::endl;
+            os << "TRADES: " << book.trades.size()  << std::endl;
+            for(const auto& trade: book.trades)
+            {
+                printTrade(trade);
+            }
         }
     }
     return os;

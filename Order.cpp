@@ -18,7 +18,8 @@ std::ostream& PrintBid(std::ostream& os, const Volume& vol, const Price& price, 
 }
 
 std::ostream& PrintAsk(std::ostream& os, const Volume& vol, const Price& price, int precision) {
-  os << std::setw(6) << std::setfill(' ') << std::right << (double)price << " " << std::setw(6) << std::setfill(' ') << std::right << vol;
+  os << std::setprecision(precision) << std::setw(7) << std::setfill(' ') << std::right << (double)price << " " << std::setw(6) << std::setfill(' ') << std::right << vol;
+  //os << std::setw(6) << std::setfill(' ') << std::right << (double)price << " " << std::setw(6) << std::setfill(' ') << std::right << vol;
   return os;
 }
 
