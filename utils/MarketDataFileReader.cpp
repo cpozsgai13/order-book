@@ -2,7 +2,6 @@
 #include "CoreMessages.h"
 #include "Order.h"
 #include <chrono>
-//#include "MarketDataLineParser.h"
 #include <fstream>
 #include <iostream>
 namespace MarketData 
@@ -163,55 +162,6 @@ bool cancelFromString(const std::string& input_string, CoreMessage& cm)
     return true;
 }
 
-// template<>
-// inline bool fromString<ModifyOrder>(const std::string& input_string, ModifyOrder& order)
-// {
-//     //  Read attributes from string
-//     std::string s;
-//     std::size_t start_pos = 0;
-//     auto end_pos = input_string.find_first_of(' ');
-//     if(end_pos == std::string::npos)
-//     {
-//         return false;
-//     }
-
-//     s = input_string.substr(start_pos, end_pos - start_pos);
-//     OrderID order_id = stoi(s);
-
-//     Side side;
-//     start_pos = end_pos + 1;
-//     end_pos = input_string.find_first_of(' ', start_pos);
-//     if(end_pos == std::string::npos)
-//     {
-//         return false;
-//     }
-//     s = input_string.substr(start_pos, end_pos - start_pos);
-//     if(!fromString<Side>(s, side))
-//     {
-//         return false;
-//     }
-
-//     Price price;
-//     start_pos = end_pos + 1;
-//     end_pos = input_string.find_first_of(' ', start_pos);
-//     if(end_pos == std::string::npos)
-//     {
-//         return false;
-//     }
-//     s = input_string.substr(start_pos, end_pos - start_pos);
-//     price = std::stoul(s);
-
-//     Quantity quantity;
-//     start_pos = end_pos + 1;
-//     s = input_string.substr(start_pos);
-//     quantity = std::stoul(s);
-
-
-//     uint64_t creation_time_ns = std::chrono::system_clock::now().time_since_epoch().count();
-//     order = ModifyOrder(order_id, side, price, quantity, creation_time_ns);
-//     return true;
-// }
-
 /////////////////////////   Generic parser for any CoreMessage //////////////////////////
 bool orderFromString(const std::string& input_string, Side side, CoreMessage& coreMessage)
 {
@@ -352,18 +302,42 @@ bool symbolFromString(const std::string& input_string, CoreMessage& coreMessage)
     start_pos = end_pos + 1;
     std::string sym = input_string.substr(start_pos);
 
-    uint64_t creation_time_ns = std::chrono::system_clock::now().time_since_epoch().count();
     coreMessage.data.symbol = {sym, id, fp};
     coreMessage.data_type = DataType::SYMBOL;
     return true;
 }
 
+bool FileReader::parseSymbol(const std::string& input_string, Symbol& sym) {
+  std::string s;
+  std::size_t start_pos = 0;
+  auto end_pos = input_string.find_first_of(' ');
+  if(end_pos == std::string::npos)
+  {
+      return false;
+  }
+  s = input_string.substr(start_pos, end_pos - start_pos);
+  InstrumentID id = std::stoul(s);
+
+  start_pos = end_pos + 1;
+  end_pos = input_string.find_first_of(' ', start_pos);
+  s = input_string.substr(start_pos, end_pos - start_pos);
+  double price = std::stod(s.c_str());
+
+  FixedPrecisionPrice<uint64_t, 6> fp{price};
+
+  start_pos = end_pos + 1;
+  std::string symbol = input_string.substr(start_pos);
+
+  sym = {symbol, id, price};
+  return true;
+}
+
 std::vector<Packet> FileReader::loadDataFile(const std::string& path) {
-    std::vector<Packet> packets;
-    std::ifstream in_file(path);
-    if(!in_file.is_open()) {
-        return packets;
-    }
+  std::vector<Packet> packets;
+  std::ifstream in_file(path);
+  if(!in_file.is_open()) {
+      return packets;
+  }
   //  Read each line
   std::string line;
   Packet cur_packet;
@@ -416,8 +390,6 @@ std::vector<Packet> FileReader::loadDataFile(const std::string& path) {
           }
           case Actions::CANCEL:
           {
-              OrderID order_id;
-              InstrumentID instrument_id;
               CoreMessage cm{};
               if(cancelFromString(line, cm))
               {
@@ -441,6 +413,32 @@ std::vector<Packet> FileReader::loadDataFile(const std::string& path) {
     in_file.close();
 
     return packets;
+}
+
+bool FileReader::loadSymbolFile(const std::string& path, std::vector<Symbol>& symbols) {
+  std::ifstream in_file(path);
+  if(!in_file.is_open()) {
+      return false;
+  }
+
+  std::string line;
+  Packet cur_packet;
+  while(std::getline(in_file, line)) {
+    Actions action = parseActionLine(line);
+    switch(action)
+    {
+      case Actions::SYMBOL: 
+      {
+        Symbol sym;
+        if(parseSymbol(line, sym)) {
+          symbols.push_back(sym);
+        }
+      }
+      default:
+        break;
+    }
+  }
+  return true;
 }
 
 }

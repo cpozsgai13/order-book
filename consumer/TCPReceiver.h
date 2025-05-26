@@ -27,6 +27,7 @@ private:
 
     std::string address;
     uint16_t port{0};
+    RingBufferSPSC<Packet, RING_BUFFER_SIZE>& output_message_queue;
     char buffer[BUFFER_SIZE];
     int sockfd{-1};
 
@@ -36,7 +37,6 @@ private:
 
 	std::mutex mut_run;
 	std::condition_variable cond_run;
-    RingBufferSPSC<Packet, RING_BUFFER_SIZE>& output_message_queue;
 };
 
 }

@@ -5,9 +5,16 @@
 #include <numeric>
 #include <atomic>
 #include <tuple>
+#include <fstream>
 
 namespace MarketData
 {
+
+enum EventType : int {
+    ADD = 0,
+    UPDATE = 1,
+    CANCEL = 2
+};
 
 std::tuple<uint64_t, uint64_t, uint64_t, uint64_t> PerformanceCounter::getStats(const std::vector<uint64_t>& data) {
     std::tuple<uint64_t, uint64_t, uint64_t, uint64_t> res;
@@ -80,6 +87,29 @@ void PerformanceCounter::printStats() {
     std::cout << "\tMEAN: " << std::get<2>(res) << std::endl;
     std::cout << "\tMDN: " << std::get<3>(res) << std::endl;
     std::cout << sep << std::endl;
+}
+
+bool PerformanceCounter::writeToFile(const std::string& path) {
+    std::ofstream out_file{path};
+
+    if(!out_file.is_open()) {
+        return false;
+    }
+
+    int i = 0;
+    for(const auto count: add_stats) {
+        out_file << (int)EventType::ADD << "," << ++i << "," << count << std::endl;
+    }
+    i = 0;
+    for(const auto count: update_stats) {
+        out_file << (int)EventType::UPDATE << "," << ++i << "," << count << std::endl;
+    }
+    i = 0;
+    for(const auto count: cancel_stats) {
+        out_file << (int)EventType::CANCEL << "," << ++i << "," << count << std::endl;
+    }
+
+    return true;
 }
 
 }

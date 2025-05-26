@@ -1,5 +1,5 @@
 
-SRC := MarketDataFileReader.cpp PerformanceCounter.cpp
+SRC := MarketDataFileReader.cpp PerformanceCounter.cpp MarketDataMessageGenerator.cpp
 OBJ := $(SRC:.cpp=.o)
 CC := g++
 CXXFLAGS := --std=c++17 -Wextra -I. -I../ -I../messages 

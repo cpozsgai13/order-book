@@ -29,12 +29,11 @@ public:
 private:
 	std::queue<Packet> message_queue;
 
-	uint16_t port;
 	std::string multicast_address;
+	uint16_t port;
     char buffer[BUFFER_SIZE];
     int sockfd{-1};
     std::atomic_bool running{false};
-
 	std::mutex m;
 	std::condition_variable cond;
 };

@@ -94,7 +94,7 @@ private:
 };
 
 using OrderPtr = std::shared_ptr<Order>;
-using OrderQueue = std::vector<OrderPtr>; 
+//using OrderQueue = std::vector<OrderPtr>; 
 
 struct OrderCompareBid {
     bool operator()(OrderPtr p1, OrderPtr p2) {
@@ -107,6 +107,10 @@ struct OrderCompareAsk {
         return p1->GetPrice() > p2->GetPrice();
     }
 };
+
+std::ostream& operator<<(std::ostream& os, const Price& price);
+std::ostream& PrintBid(std::ostream& os, const Volume& vol, const Price& price, int precision);
+std::ostream& PrintAsk(std::ostream& os, const Volume& vol, const Price& price, int precision);
 
 }
 

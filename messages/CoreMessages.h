@@ -12,14 +12,13 @@ namespace MarketData
 {
 
 enum class DataType : uint8_t {
-  SYMBOL = 1,
-  ADD_ORDER = 2,
-  UPDATE_ORDER = 3,
-  CANCEL_ORDER = 4,
-  TRADE = 5,
-  INVALID = 6
+  SYMBOL = 0,
+  ADD_ORDER = 1,
+  UPDATE_ORDER = 2,
+  CANCEL_ORDER = 3,
+  TRADE = 4,
+  INVALID = 5
 };
-
 
 constexpr size_t SYMBOL_MAX_LEN = 20;
 constexpr size_t PRICE_LEN = sizeof(FixedPrecisionPrice<uint64_t, 6>);
@@ -109,13 +108,13 @@ struct ModifyOrder {
     ModifyOrder() = default;
     ~ModifyOrder() = default;
     ModifyOrder(const ModifyOrder& mo) = default;
-    ModifyOrder(OrderID oid, InstrumentID inst_id, Side s, FixedPrecisionPrice<uint64_t, 6> p, Quantity q, uint64_t creation_time_ns):
+    ModifyOrder(OrderID oid, InstrumentID inst_id, Side s, FixedPrecisionPrice<uint64_t, 6> p, Quantity q, uint64_t update_time_ns):
         order_id(oid),
         instrument_id(inst_id),
         price(p.rawValue()),
         side(s),
         quantity(q),
-        update_time_ns(creation_time_ns)
+        update_time_ns(update_time_ns)
     {
     }
 

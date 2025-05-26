@@ -42,28 +42,6 @@ enum class OrderType : uint8_t
     INVALID = 3
 };
 
-// static std::string ToString(OrderType t)
-// {
-//     switch(t)
-//     {
-//         case OrderType::GFD:
-//         {
-//             return "GFD";
-//         }
-//         case OrderType::IOC:
-//         {
-//             return "GFD";
-//         }
-//         case OrderType::MARKET:
-//         {
-//             return "Market";
-//         }
-//         default:
-//             break;
-//     }
-//     return "INVALID";
-// }
-
 }
 
 #endif

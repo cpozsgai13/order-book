@@ -7,6 +7,7 @@
 #include "ExchangeDataProcessor.h"
 #include "MarketDataFileReader.h"
 #include "MarketDataLineParser.h"
+#include "MarketDataMessageGenerator.h"
 #include "Order.h"
 #include "rtdsc.h"
 #include "MarketDataDefinitions.h"
@@ -128,7 +129,8 @@ int main(int argc, char *argv[])
     uint16_t producer_port{0};
     std::string symbol_file;
     std::vector<std::string> data_files;
-
+    std::string data_input_type;
+    uint32_t num_random_objects = 0;
     if(argc > 1)
     {
         auto properties = parseIniFile(argv[1]);
@@ -137,26 +139,31 @@ int main(int argc, char *argv[])
             return 1;
         }
 
-        symbol_file = properties.get<std::string>("symbol_file");
-        auto files_str = properties.get<std::string>("market_data_files");
-        if(!files_str.empty()) {
-            auto start_pos = 0;
-            auto pos = files_str.find(',');
-            data_files.push_back(files_str.substr(0, pos));
-            while(pos != std::string::npos) {
-                start_pos = pos + 1;
-                pos = files_str.find(',', start_pos);
-                if(pos != std::string::npos) {
-                    data_files.push_back(files_str.substr(start_pos, pos - start_pos));
-                } else {
-                    data_files.push_back(files_str.substr(start_pos));
+        data_input_type = properties.get_optional<std::string>("data.type").get_value_or("file");
+        if(data_input_type == "file") {
+            symbol_file = properties.get_optional<std::string>("data.symbol_file").get_value_or("symbols.txt");
+            auto files_str = properties.get_optional<std::string>("data.market_data_files").get_value_or("");
+            if(!files_str.empty()) {
+                auto start_pos = 0;
+                auto pos = files_str.find(',');
+                data_files.push_back(files_str.substr(0, pos));
+                while(pos != std::string::npos) {
+                    start_pos = pos + 1;
+                    pos = files_str.find(',', start_pos);
+                    if(pos != std::string::npos) {
+                        data_files.push_back(files_str.substr(start_pos, pos - start_pos));
+                    } else {
+                        data_files.push_back(files_str.substr(start_pos));
+                    }
                 }
             }
+        } else {
+            symbol_file = properties.get_optional<std::string>("data.symbol_file").get_value_or("symbols.txt");
+            num_random_objects = properties.get_optional<uint32_t>("data.N").get_value_or(1000);
         }
 
         consumer_ip = properties.get<std::string>("consumer.ip");
         consumer_port = properties.get<uint16_t>("consumer.port");
-        exchange_name = properties.get<std::string>("exchange_name");
 
         if(consumer_ip.empty() || consumer_port == 0) {
             return 1;
@@ -166,6 +173,9 @@ int main(int argc, char *argv[])
             return 1;
         }
     }
+
+
+    std::vector<Packet> message_packets;
 
     MarketData::FileReader reader;
     auto symbol_packets = reader.loadDataFile(symbol_file);
@@ -179,23 +189,28 @@ int main(int argc, char *argv[])
     }
     std::cout << "Loaded " << symbol_packets.size() << ", symbols: " << symbol_msg_count << endl;
 
-
-    std::vector<Packet> message_packets;
-    size_t md_msg_count = 0;
-    for(const auto& data_file: data_files) {
-        auto&& packets = reader.loadDataFile(data_file);
-        for(const auto& packet: packets) {
-            md_msg_count += packet.header.num_messages;
-            message_packets.push_back(packet);
+    if(data_input_type == "file") {
+        size_t md_msg_count = 0;
+        for(const auto& data_file: data_files) {
+            auto&& packets = reader.loadDataFile(data_file);
+            for(const auto& packet: packets) {
+                md_msg_count += packet.header.num_messages;
+                message_packets.push_back(packet);
+            }
         }
-    }
 
-    for(const auto& data_file: data_files) {
-        auto&& packets = reader.loadDataFile(data_file);
-        message_packets.reserve(message_packets.size() + packets.size());
-        std::copy(packets.begin(), packets.end(), std::back_inserter(message_packets));
+        for(const auto& data_file: data_files) {
+            auto&& packets = reader.loadDataFile(data_file);
+            message_packets.reserve(message_packets.size() + packets.size());
+            std::copy(packets.begin(), packets.end(), std::back_inserter(message_packets));
+        }
+        std::cout << "Loaded " << message_packets.size() << "packets, messages: " << md_msg_count << endl;
+    } else if(data_input_type == "random") {
+        MarketDataMessageGenerator generator;
+        std::vector<Symbol> symbol_set;
+        reader.loadSymbolFile(symbol_file, symbol_set);
+        generator.GenerateMessages(symbol_set, num_random_objects, message_packets);
     }
-    std::cout << "Loaded " << message_packets.size() << "packets, messages: " << md_msg_count << endl;
 
     ExchangeOrderBook exchange_order_engine{exchange_name};
     RingBufferSPSC<Packet, RING_BUFFER_SIZE> tcp_message_queue;

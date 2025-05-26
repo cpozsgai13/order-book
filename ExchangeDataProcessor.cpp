@@ -1,15 +1,34 @@
 #include "ExchangeDataProcessor.h"
 #include "LogUtils.h"
 #include <iostream>
+#include <sstream>
 #include <algorithm>
 #include <numeric>
 #include <atomic>
 #include <tuple>
+#include <chrono>
 #include "rtdsc.h"
 #include "PerformanceCounter.h"
 
 namespace MarketData
 {
+
+auto formatTimestampLocal = [](uint64_t timestamp_ns) -> std::string {
+    time_t t = timestamp_ns/1'000'000'000;
+    struct tm *ts = localtime(&t);
+    std::stringstream ss;
+    ss << std::put_time(ts, "%H%M%S");
+    return ss.str();
+};
+
+auto createFileName=[]() -> std::string {
+	std::stringstream ss;
+
+	auto ts = std::chrono::system_clock::now().time_since_epoch().count();
+	ss << "perf_" << formatTimestampLocal(ts) << ".csv";
+
+	return ss.str();
+};
 
 ExchangeDataProcessor::ExchangeDataProcessor(ExchangeOrderBook& exch_order_book, 
 	RingBufferSPSC<MarketData::Packet, RING_BUFFER_SIZE>& msg_queue, std::mutex& mut, std::condition_variable& cnd): 
@@ -29,12 +48,12 @@ void ExchangeDataProcessor::initHandlers() {
 }
 
 void ExchangeDataProcessor::processSymbol(CoreMessage& cm) {
-	Symbol& symbol = (Symbol&)cm.data;
+	Symbol& symbol = (Symbol&)cm.data.symbol;
 	exchange_order_book.AddUpdateSymbol(symbol);
 }
 
 void ExchangeDataProcessor::processAddOrder(CoreMessage& cm) {
-	AddOrder& order = (AddOrder&)cm.data;
+	AddOrder& order = (AddOrder&)cm.data.add_order;
 	if(!measuring) {
 		exchange_order_book.AddNewOrder(order.instrument_id, order);
 	} else {
@@ -43,7 +62,7 @@ void ExchangeDataProcessor::processAddOrder(CoreMessage& cm) {
 }
 
 void ExchangeDataProcessor::processUpdateOrder(CoreMessage& cm) {
-	ModifyOrder& order = (ModifyOrder&)cm.data;
+	ModifyOrder& order = (ModifyOrder&)cm.data.update_order;
 	if(!measuring) {
 		exchange_order_book.UpdateOrder(order.instrument_id, order);
 	} else {
@@ -74,6 +93,7 @@ void ExchangeDataProcessor::stop() {
   exchange_order_book.PrintAll();
   if(measuring) {
 	perf_counter.printStats();
+	perf_counter.writeToFile(createFileName());
   }
 }
 

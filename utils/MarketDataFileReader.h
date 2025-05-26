@@ -13,6 +13,10 @@ public:
     ~FileReader() = default;
 
     std::vector<Packet> loadDataFile(const std::string& path);
+    bool loadSymbolFile(const std::string& path, std::vector<Symbol>& symbols);
+
+private:
+    bool parseSymbol(const std::string& line, Symbol& sym);
 };
 
 }

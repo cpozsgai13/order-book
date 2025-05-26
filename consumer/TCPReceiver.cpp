@@ -41,8 +41,6 @@ bool TCPReceiver::openSocket() {
   {
       return false;
   }
-  socklen_t socklen;
-  int timeout_ms = 1000;
   struct timeval tv;
   tv.tv_sec = 1;
   tv.tv_usec = 0;

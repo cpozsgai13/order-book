@@ -51,81 +51,73 @@ bool MulticastReceiver::openSocket() {
         return false;
 	}
 
-    // uint32_t reuse = 1;
-    // if(setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse)) < 0)
-    // {
-    //     return false;
-    // }
-    socklen_t socklen;
-    int timeout_ms = 1000;
-    struct timeval tv;
-    tv.tv_sec = 1;
-    tv.tv_usec = 0;
-    if(setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) < 0)
-    {
-        return false;
-    }
-
-
-    return true;
+  struct timeval tv;
+  tv.tv_sec = 1;
+  tv.tv_usec = 0;
+  if(setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) < 0)
+  {
+      return false;
+  }
+  return true;
 }
 
 bool MulticastReceiver::run() {
-    if(!openSocket()) {
-        return false;
-    }
+  if(!openSocket()) {
+      return false;
+  }
 
-    //  Join the multicast group and note the address
-    struct sockaddr_in addr;
-    memset(&addr, 0, sizeof(addr));
-    addr.sin_family = AF_INET;
-    addr.sin_port = htons(port);
-    addr.sin_addr.s_addr = htonl(INADDR_ANY);    
-    // addr.sin_addr.s_addr = inet_addr(interface_address.c_str());
+  //  Join the multicast group and note the address
+  struct sockaddr_in addr;
+  memset(&addr, 0, sizeof(addr));
+  addr.sin_family = AF_INET;
+  addr.sin_port = htons(port);
+  addr.sin_addr.s_addr = htonl(INADDR_ANY);    
+  // addr.sin_addr.s_addr = inet_addr(interface_address.c_str());
 
-    if(bind(sockfd, (struct sockaddr *)&addr, sizeof(addr)) < 0)
-    {
-        return false;
-    }
+  if(bind(sockfd, (struct sockaddr *)&addr, sizeof(addr)) < 0)
+  {
+      return false;
+  }
     
-    struct ip_mreq mreq;
-    mreq.imr_multiaddr.s_addr = inet_addr(multicast_address.c_str());
-    mreq.imr_interface.s_addr = htonl(INADDR_ANY);
-    //mreq.imr_interface.s_addr = inet_addr(interface_address.c_str());
+  struct ip_mreq mreq;
+  mreq.imr_multiaddr.s_addr = inet_addr(multicast_address.c_str());
+  mreq.imr_interface.s_addr = htonl(INADDR_ANY);
+  //mreq.imr_interface.s_addr = inet_addr(interface_address.c_str());
 
-    if(setsockopt(sockfd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) < 0)
-    {
-        return false;
+  if(setsockopt(sockfd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) < 0)
+  {
+      return false;
+  }
+
+  //  Wait until started
+  {
+    std::unique_lock<std::mutex> lock(m);
+    cond.wait(lock, [this]{return running.load();});
+  }
+  std::cout << "Sender signaled to start" << std::endl;
+
+  while(running.load()) {
+    int bytes = recv(sockfd, buffer, sizeof(buffer), 0);
+    if(bytes == 0) {
+        continue;
+    } else if(bytes < 0) {
+        continue;
+        //running.store(false);
+        //break;            
     }
 
-    //  Wait until started
-    {
-      std::unique_lock<std::mutex> lock(m);
-      cond.wait(lock, [this]{return running.load();});
+
+    if(!running) {
+      break;
     }
-    std::cout << "Sender signaled to start" << std::endl;
 
-    while(running.load()) {
-      int bytes = recv(sockfd, buffer, sizeof(buffer), 0);
-      if(bytes == 0) {
-          continue;
-      } else if(bytes < 0) {
-          continue;
-          //running.store(false);
-          //break;            
-      }
-
-
-      if(!running) {
-        break;
-      }
-
-      Packet packet;
-      if(Packet::FromBuffer(buffer, bytes, packet)) {
-          processMessage(packet);
-      }
+    Packet packet;
+    if(Packet::FromBuffer(buffer, bytes, packet)) {
+        processMessage(packet);
     }
-    std::cout << "Receiver done running" << std::endl;
+  }
+  std::cout << "Receiver done running" << std::endl;
+  return true;
 }
 
 void MulticastReceiver::start() {

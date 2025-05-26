@@ -79,6 +79,18 @@ public:
     bool operator<(const FixedPrecisionPrice<T, Places>& other) const {
         return value < other.value;
     }
+
+    uint8_t numPlaces() const {
+        return places;
+    }
+
+    uint8_t numDigits() const {
+        auto norm_value = value/divisor;
+        if(norm_value > 0) {
+            return (uint8_t)(1 + log10(value/divisor));
+        }
+        return 0;
+    }
 private:
     T value{0};
     uint8_t places{0};
