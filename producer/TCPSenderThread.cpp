@@ -1,4 +1,4 @@
-#include "TCPSender.h"
+#include "TCPSenderThread.h"
 #include "LogUtils.h"
 #include <iostream>
 #include <vector>
@@ -13,17 +13,20 @@
 #include <memory>
 #include <string.h>
 #include <unistd.h>
+#include "rtdsc.h"
+#include <thread>
+#include <chrono>
 
 namespace MarketData 
 {
 
-TCPSender::TCPSender(uint16_t send_port):
-port(send_port)
+TCPSenderThread::TCPSenderThread(uint16_t send_port, int send_rate):
+port(send_port),
+packets_per_second(send_rate)
 {
-  openSocket();
 }
 
-bool TCPSender::openSocket() {
+bool TCPSenderThread::openSocket() {
 	sockfd = socket(AF_INET, SOCK_STREAM, 0);
 	if(sockfd < 0)
 	{
@@ -47,79 +50,81 @@ bool TCPSender::openSocket() {
 	return true;
 }
 
-bool TCPSender::closeSocket() {
+bool TCPSenderThread::closeSocket() {
 	close(sockfd);
-	return false;
-}
-
-bool TCPSender::enqueue(Packet& packet) {
-  std::lock_guard<std::mutex> lock(m);
-  message_queue.push(packet);
-  cond.notify_one();
 	return true;
 }
 
-bool TCPSender::run() {
+bool TCPSenderThread::enqueue(Packet&& packet) {
+  message_queue.push(packet);
+	return true;
+}
+
+bool TCPSenderThread::run() {
   if(sockfd < 0) {
     return false;
   }
 
-  //  Wait until started
-  {
-    std::unique_lock<std::mutex> lock(m);
-    cond.wait(lock, [this]{return running.load();});
-  }
-
   struct sockaddr_in client_addr;
   uint32_t clilen = sizeof(client_addr);
-  listen(sockfd, 5);
+  if(listen(sockfd, 5) != 0) {
+    closeSocket();
+    return false;
+  }
   client_sockfd = accept(sockfd, (struct sockaddr *)&client_addr, &clilen);
 
   if(client_sockfd < 0)
   {
+    closeSocket();
     return false;
   }
-  //std::cout << "Client connected to TCP sender" << std::endl;
 
-  Packet packet;
+  auto thread_start_time = std::chrono::steady_clock::now().time_since_epoch().count();
+  int64_t delay_ns = 1'000'000'000/packets_per_second.load();
   while(running.load()) {
     if(!running.load()) {
       //std::cout << "Exiting run loop" << std::endl;
       break;
     }
-
     if(message_queue.pop(packet)) {
       //  Send the packet.
-      if(packet.header.num_messages > 0) {
-        auto sz = packet.header.total_length;
+      if(packet.data.packet.header.num_messages > 0) {
+        std::this_thread::sleep_for(std::chrono::nanoseconds(delay_ns));
+        auto sz = packet.data.packet.header.total_length;
         int sent = send(client_sockfd, (char *)&packet, sz, 0);
         if(sent <= 0) {
           std::cout << "Send error: " << errno << std::endl;
         } else {
-          std::cout << "Sender sent: " << sent << std::endl;
+          //std::cout << "Sender sent: " << sent << std::endl;
         }
       }
+    } else {
+      auto thread_end_time = std::chrono::steady_clock::now().time_since_epoch().count();
+      double delta_t = (thread_end_time - thread_start_time)/1'000'000;
+      std::cout << "Message queue took " << delta_t << " ms to send packets " << std::endl;
+      running.store(false);
+      break;
     }
     if(!running) {
       break;
     }
 
   }
-  std::cout << "Sender stopped" << std::endl;
-  return true;
+  //std::cout << "Sender stopped" << std::endl;
+  return closeSocket();
 }
 
-void TCPSender::start() {
-  std::lock_guard<std::mutex> lock(m);
+bool TCPSenderThread::start() {
+  if(!openSocket()) {
+    return false;
+  }
+
   running.store(true);
-  cond.notify_one();
+  return run();
 }
 
-void TCPSender::stop() {
-  std::lock_guard<std::mutex> lock(m);
+void TCPSenderThread::stop() {
   running.store(false);
-  cond.notify_one();
-  closeSocket();
 }
 
 }

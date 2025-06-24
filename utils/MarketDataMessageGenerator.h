@@ -20,7 +20,7 @@ public:
 private:
   void init();
   std::unordered_map<DataType, GeneratorFn> generator_map;
-  // bool GenerateSymbol(CoreMessage& msg);
+  std::vector<OrderID> order_ids;
   bool GenerateAddOrder(CoreMessage& msg, InstrumentID id);
   bool GenerateUpdateOrder(CoreMessage& msg, InstrumentID id);
   bool GenerateCancelOrder(CoreMessage& msg, InstrumentID id);

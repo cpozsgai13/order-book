@@ -16,6 +16,10 @@ enum EventType : int {
     CANCEL = 2
 };
 
+PerformanceCounter::PerformanceCounter(const std::string& out_file, double proc_speed):
+perf_file(out_file),
+processor_speed(proc_speed){}
+
 std::tuple<uint64_t, uint64_t, uint64_t, uint64_t> PerformanceCounter::getStats(const std::vector<uint64_t>& data) {
     std::tuple<uint64_t, uint64_t, uint64_t, uint64_t> res;
     if(data.empty()) {
@@ -58,35 +62,42 @@ void PerformanceCounter::cancelStat(uint64_t stat) {
     cancel_stats.push_back(stat);
 }
 
+void PerformanceCounter::save() {
+    if(!perf_file.empty()) {
+        writeToFile(perf_file);
+    }
+    printStats();
+}
+
 void PerformanceCounter::printStats() {
     std::string sep(50, '-');
 
-    std::cout << "ADD STATS: " << std::endl;
-    std::cout << "\tCOUNT: " << add_stats.size() << std::endl;
+    std::cout << "ADD STATS: " << '\n';
+    std::cout << "\tCOUNT: " << add_stats.size() << '\n';
     std::tuple<uint64_t, uint64_t, uint64_t, uint64_t> res = getStats(add_stats);
-    std::cout << "\tMIN: " << std::get<0>(res) << std::endl;
-    std::cout << "\tMAX: " << std::get<1>(res) << std::endl;
-    std::cout << "\tMEAN: " << std::get<2>(res) << std::endl;
-    std::cout << "\tMDN: " << std::get<3>(res) << std::endl;
-    std::cout << sep << std::endl;
+    std::cout << "\tMIN: " << std::get<0>(res) << '\n';
+    std::cout << "\tMAX: " << std::get<1>(res) << '\n';
+    std::cout << "\tMEAN: " << std::get<2>(res) << '\n';
+    std::cout << "\tMDN: " << std::get<3>(res) << '\n';
+    std::cout << sep << '\n';
 
-    std::cout << "UPDATE STATS: " << std::endl;
-    std::cout << "\tCOUNT: " << update_stats.size() << std::endl;
+    std::cout << "UPDATE STATS: " << '\n';
+    std::cout << "\tCOUNT: " << update_stats.size() << '\n';
     res = getStats(update_stats);
-    std::cout << "\tMIN: " << std::get<0>(res) << std::endl;
-    std::cout << "\tMAX: " << std::get<1>(res) << std::endl;
-    std::cout << "\tMEAN: " << std::get<2>(res) << std::endl;
-    std::cout << "\tMDN: " << std::get<3>(res) << std::endl;
-    std::cout << sep << std::endl;
+    std::cout << "\tMIN: " << std::get<0>(res) << '\n';
+    std::cout << "\tMAX: " << std::get<1>(res) << '\n';
+    std::cout << "\tMEAN: " << std::get<2>(res) << '\n';
+    std::cout << "\tMDN: " << std::get<3>(res) << '\n';
+    std::cout << sep << '\n';
 
-    std::cout << "CANCEL STATS: " << std::endl;
-    std::cout << "\tCOUNT: " << cancel_stats.size() << std::endl;
+    std::cout << "CANCEL STATS: " << '\n';
+    std::cout << "\tCOUNT: " << cancel_stats.size() << '\n';
     res = getStats(cancel_stats);
-    std::cout << "\tMIN: " << std::get<0>(res) << std::endl;
-    std::cout << "\tMAX: " << std::get<1>(res) << std::endl;
-    std::cout << "\tMEAN: " << std::get<2>(res) << std::endl;
-    std::cout << "\tMDN: " << std::get<3>(res) << std::endl;
-    std::cout << sep << std::endl;
+    std::cout << "\tMIN: " << std::get<0>(res) << '\n';
+    std::cout << "\tMAX: " << std::get<1>(res) << '\n';
+    std::cout << "\tMEAN: " << std::get<2>(res) << '\n';
+    std::cout << "\tMDN: " << std::get<3>(res) << '\n';
+    std::cout << sep << '\n';
 }
 
 bool PerformanceCounter::writeToFile(const std::string& path) {
@@ -96,17 +107,21 @@ bool PerformanceCounter::writeToFile(const std::string& path) {
         return false;
     }
 
+    auto toNanos=[this](uint64_t cnt) -> uint64_t {
+        return cnt/processor_speed;
+    };
+    out_file << "EventType,I,Count,Nanoseconds" << '\n';
     int i = 0;
     for(const auto count: add_stats) {
-        out_file << (int)EventType::ADD << "," << ++i << "," << count << std::endl;
+        out_file << (int)EventType::ADD << "," << ++i << "," << count << ',' << toNanos(count) << '\n';
     }
     i = 0;
     for(const auto count: update_stats) {
-        out_file << (int)EventType::UPDATE << "," << ++i << "," << count << std::endl;
+        out_file << (int)EventType::UPDATE << "," << ++i << "," << count << ',' << toNanos(count) << '\n';
     }
     i = 0;
     for(const auto count: cancel_stats) {
-        out_file << (int)EventType::CANCEL << "," << ++i << "," << count << std::endl;
+        out_file << (int)EventType::CANCEL << "," << ++i << "," << count << ',' << toNanos(count) << '\n';
     }
 
     return true;

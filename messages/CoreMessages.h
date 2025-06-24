@@ -34,19 +34,15 @@ const auto formatText=[](char *buffer, size_t max_len = SYMBOL_MAX_LEN) -> std::
 	return ret;
 };
 
+#pragma pack(push, 1)
 struct Header {
     uint16_t num_messages{0};
-    uint16_t total_length{sizeof(Header)};
+    uint16_t total_length{0};
 
     void clear() {
         num_messages = 0;
-        total_length = sizeof(Header);
+        total_length = 0;
     }
-};
-
-struct NullMessage {
-    uint16_t sz{0};
-    NullMessage() = default;
 };
 
 struct Symbol {
@@ -60,7 +56,7 @@ struct Symbol {
     }
     Symbol(const std::string& sym, InstrumentID id, FixedPrecisionPrice<uint64_t, 6> price):
     instrument_id(id),
-    last_price(price.rawValue())
+    last_price(price)
     {
       memset(symbol, 0, SYMBOL_MAX_LEN);
       strncpy(symbol, sym.c_str(), sym.length());
@@ -155,6 +151,7 @@ struct TradeExecution {
     InstrumentID instrument_id{0};
 };
 
+// struct alignas(CACHE_LINE_SIZE) CoreMessage {
 struct CoreMessage {
     CoreMessage() = default;
     ~CoreMessage() {
@@ -165,13 +162,15 @@ struct CoreMessage {
         data_type = cm.data_type;
         return *this;
     }
+    CoreMessage(const CoreMessage& cm) {
+        *this = cm;
+    }
     union Message {
-        NullMessage null_message;
         Symbol symbol;
         AddOrder add_order;
         ModifyOrder update_order;
         CancelOrder cancel_order;
-        Message() : null_message(){}
+        Message(){}
     };
     DataType getDataType() const {
         return data_type;
@@ -180,26 +179,34 @@ struct CoreMessage {
     Message data;
 };
 
-struct alignas(CACHE_LINE_SIZE) Packet {
-// struct Packet {
-    Header header;
+struct Packet {
     struct PacketStruct {
+        Header header;
         CoreMessage messages[(UDP_BUFFER_SIZE- sizeof(Header))/sizeof(CoreMessage)];
+        PacketStruct() {
+            header.total_length = 0;
+            header.num_messages = 0;
+        }
     };
+    static constexpr size_t MESSAGES_PER_PACKET = (UDP_BUFFER_SIZE- sizeof(Header))/sizeof(CoreMessage);
     union PacketData
     {
-        char buffer[UDP_BUFFER_SIZE];
+        char buffer[UDP_BUFFER_SIZE]={0};
         PacketStruct packet;
-        PacketData(){}
+
+        PacketData():packet()
+        {
+            memset(buffer, 0, UDP_BUFFER_SIZE);
+        }
         ~PacketData(){}
         PacketData& operator=(const PacketData& other) {
-            memcpy(buffer, other.buffer, UDP_BUFFER_SIZE);
+            memcpy(buffer, other.buffer, other.packet.header.total_length);
             return *this;
         }
     };
     PacketData data;
 
-    Packet() {
+    Packet():data() {
     }
 
     ~Packet() {
@@ -207,48 +214,55 @@ struct alignas(CACHE_LINE_SIZE) Packet {
     }
 
     Packet(const Packet& other) {
-        header = other.header;
+        // header = other.header;
         data = other.data;
     }
 
     bool CanAddMessage() const {
-        return header.total_length < UDP_BUFFER_SIZE - sizeof(CoreMessage);
+        return data.packet.header.total_length < UDP_BUFFER_SIZE - sizeof(CoreMessage);
+        //return header.total_length < UDP_BUFFER_SIZE - sizeof(CoreMessage);
     }
 
-    bool AddMessage(CoreMessage&& msg) {
+    bool AddMessage(CoreMessage& msg) {
         auto sz_msg = sizeof(msg);
         auto cur_sz = GetSize();
 
         if(sz_msg + cur_sz <= UDP_BUFFER_SIZE) {
-            data.packet.messages[header.num_messages] = std::move(msg);
-            header.num_messages++;
-            header.total_length = sz_msg + cur_sz;
+            data.packet.messages[data.packet.header.num_messages] = msg;
+            //data.packet.messages[header.num_messages] = std::move(msg);
+            //header.num_messages++;
+            //header.total_length = sz_msg + cur_sz;
+            data.packet.header.num_messages++;
+            data.packet.header.total_length = sz_msg + cur_sz;
             return true;
         }
         return false;
     };
 
     size_t GetSize() {
-        return header.total_length;
+        return data.packet.header.total_length;
+        //return header.total_length;
     }
 
     size_t MessageCount() {
-        return header.num_messages;
+        return data.packet.header.num_messages;
+        //return header.num_messages;
     }
     void clear() {
-        header.clear();
+        data.packet.header.clear();
     }
 
     static bool FromBuffer(char *buffer, size_t len, Packet& packet) {
         if(len < sizeof(Header)) {
             return false;
         }
-        packet.header = *reinterpret_cast<Header*>(buffer);
-        memcpy(&packet.header, buffer, len);
+        packet.data.packet.header = *reinterpret_cast<Header*>(buffer);
+        memcpy(&packet.data.packet.header, buffer, len);
         return true;
     }
 };
 
+#pragma pack(pop)
 struct SymbolComp {
     bool operator()(const Symbol& s1, const Symbol& s2) {
         return memcmp(s1.symbol, s2.symbol, SYMBOL_MAX_LEN) == 0;

@@ -10,7 +10,7 @@
 
 namespace MarketData
 {
-using Price = FixedPrecisionPrice<RawPrice, 6>;
+//using Price = FixedPrecisionPrice<RawPrice, 6>;
 
 class Order
 {
@@ -94,7 +94,6 @@ private:
 };
 
 using OrderPtr = std::shared_ptr<Order>;
-//using OrderQueue = std::vector<OrderPtr>; 
 
 struct OrderCompareBid {
     bool operator()(OrderPtr p1, OrderPtr p2) {
@@ -108,9 +107,9 @@ struct OrderCompareAsk {
     }
 };
 
-std::ostream& operator<<(std::ostream& os, const Price& price);
-std::ostream& PrintBid(std::ostream& os, const Volume& vol, const Price& price, int precision);
-std::ostream& PrintAsk(std::ostream& os, const Volume& vol, const Price& price, int precision);
+std::ostream& operator<<(std::ostream& os, const FixedPrecisionPrice<uint64_t, 6>& price);
+std::ostream& PrintBid(std::ostream& os, const Volume& vol, const FixedPrecisionPrice<uint64_t, 6>& price, int precision);
+std::ostream& PrintAsk(std::ostream& os, const Volume& vol, const FixedPrecisionPrice<uint64_t, 6>& price, int precision);
 
 }
 

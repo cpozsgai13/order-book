@@ -1,9 +1,15 @@
 #include "MarketDataFileReader.h"
 #include "CoreMessages.h"
 #include "Order.h"
+#include "FastFileReader.hpp"
 #include <chrono>
 #include <fstream>
 #include <iostream>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
+
 namespace MarketData 
 {
 const auto parseActionLine=[](std::string& line) -> MarketData::Actions
@@ -334,110 +340,110 @@ bool FileReader::parseSymbol(const std::string& input_string, Symbol& sym) {
 
 std::vector<Packet> FileReader::loadDataFile(const std::string& path) {
   std::vector<Packet> packets;
-  std::ifstream in_file(path);
-  if(!in_file.is_open()) {
-      return packets;
-  }
-  //  Read each line
-  std::string line;
-  Packet cur_packet;
-  while(std::getline(in_file, line)) {
-    Actions action = parseActionLine(line);
-    switch(action)
-    {
-      case Actions::SYMBOL: 
-      {
-        CoreMessage cm{};
-        if(symbolFromString(line, cm)) {
-            if(cur_packet.CanAddMessage()) {
-              cur_packet.AddMessage(std::move(cm));
-            } else {
-              packets.push_back(cur_packet);
-              cur_packet.clear();
-              cur_packet.AddMessage(std::move(cm));
-            }
-          }
-          break;
-        }
-        case Actions::BUY:
-        case Actions::SELL:
-        {
-          CoreMessage cm{};
-          if(orderFromString(line, action == Actions::BUY ? Side::BID : Side::ASK, cm)) {
-              if(cur_packet.CanAddMessage()) {
-                cur_packet.AddMessage(std::move(cm));                    
-              } else {
-                packets.push_back(cur_packet);
-                cur_packet.clear();
-                cur_packet.AddMessage(std::move(cm));
-              }
-          }
-          break;
-        }
-          case Actions::MODIFY:
-          {
-              CoreMessage cm{};
-              if(modifyFromString(line, cm)) {
-                if(cur_packet.CanAddMessage()) {
-                  cur_packet.AddMessage(std::move(cm));
-                } else {
-                  packets.push_back(cur_packet);
-                  cur_packet.clear();
-                  cur_packet.AddMessage(std::move(cm));
-                }
-              }
-              break;
-          }
-          case Actions::CANCEL:
-          {
-              CoreMessage cm{};
-              if(cancelFromString(line, cm))
-              {
-                if(cur_packet.CanAddMessage()) {
-                  cur_packet.AddMessage(std::move(cm));
-                } else {
-                  packets.push_back(cur_packet);
-                  cur_packet.clear();
-                  cur_packet.AddMessage(std::move(cm));
-                }
-              } 
-              break;
-          }
-          default:
-              break;
-      }
-  }
-    if(cur_packet.MessageCount()) {
-        packets.push_back(cur_packet);
-    }
-    in_file.close();
 
-    return packets;
+	FastFileReader file_reader(path);
+	std::string line;
+  Packet cur_packet;
+	while(file_reader.getNextLine(line)) {
+		Actions action = parseActionLine(line);
+		continue;
+		switch(action)
+		{
+			case Actions::SYMBOL: 
+			{
+				CoreMessage cm{};
+				if(symbolFromString(line, cm)) {
+						if(cur_packet.CanAddMessage()) {
+							//cur_packet.AddMessage(std::move(cm));
+							cur_packet.AddMessage(cm);
+						} else {
+							packets.push_back(cur_packet);
+							cur_packet.clear();
+						//   cur_packet.AddMessage(std::move(cm));
+							cur_packet.AddMessage(cm);
+						}
+					}
+					break;
+				}
+				case Actions::BUY:
+				case Actions::SELL:
+				{
+					CoreMessage cm{};
+					if(orderFromString(line, action == Actions::BUY ? Side::BID : Side::ASK, cm)) {
+							if(cur_packet.CanAddMessage()) {
+								cur_packet.AddMessage(cm);
+								//cur_packet.AddMessage(std::move(cm));                    
+							} else {
+								packets.push_back(cur_packet);
+								cur_packet.clear();
+								cur_packet.AddMessage(cm);
+
+								//cur_packet.AddMessage(std::move(cm));
+							}
+					}
+					break;
+				}
+					case Actions::MODIFY:
+					{
+							CoreMessage cm{};
+							if(modifyFromString(line, cm)) {
+								if(cur_packet.CanAddMessage()) {
+									cur_packet.AddMessage(cm);
+									//cur_packet.AddMessage(std::move(cm));
+								} else {
+									packets.push_back(cur_packet);
+									cur_packet.clear();
+									cur_packet.AddMessage(cm);
+									//cur_packet.AddMessage(std::move(cm));
+								}
+							}
+							break;
+					}
+					case Actions::CANCEL:
+					{
+							CoreMessage cm{};
+							if(cancelFromString(line, cm))
+							{
+								if(cur_packet.CanAddMessage()) {
+									//cur_packet.AddMessage(std::move(cm));
+									cur_packet.AddMessage(cm);
+								} else {
+									packets.push_back(cur_packet);
+									cur_packet.clear();
+									//cur_packet.AddMessage(std::move(cm));
+									cur_packet.AddMessage(cm);
+								}
+							} 
+							break;
+					}
+					default:
+							break;
+		}
+	}
+	if(cur_packet.MessageCount()) {
+			packets.push_back(cur_packet);
+	}
+  return packets;
 }
 
 bool FileReader::loadSymbolFile(const std::string& path, std::vector<Symbol>& symbols) {
-  std::ifstream in_file(path);
-  if(!in_file.is_open()) {
-      return false;
-  }
-
-  std::string line;
-  Packet cur_packet;
-  while(std::getline(in_file, line)) {
-    Actions action = parseActionLine(line);
-    switch(action)
-    {
-      case Actions::SYMBOL: 
-      {
-        Symbol sym;
-        if(parseSymbol(line, sym)) {
-          symbols.push_back(sym);
-        }
-      }
-      default:
-        break;
-    }
-  }
+	FastFileReader file_reader(path);
+	std::string line;
+	while(file_reader.getNextLine(line)) {
+        Actions action = parseActionLine(line);
+		switch(action) {
+			case Actions::SYMBOL:
+			{
+				Symbol sym;
+				if(parseSymbol(line, sym)) {
+					symbols.push_back(sym);
+				}
+                break;
+			}
+            default:
+                break;
+		}
+	}
   return true;
 }
 

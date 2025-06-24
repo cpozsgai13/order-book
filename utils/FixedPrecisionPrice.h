@@ -36,6 +36,7 @@ struct Power {
 //  For example, to represent the price 100.0243
 //  FixedPrice<uint32_t, 4> price(1000243)
 //template<typename T = uint32_t, uint8_t Places = 4>
+#pragma pack(push, 1)
 template<typename T, int Places>
 class FixedPrecisionPrice {
 public:
@@ -48,9 +49,7 @@ public:
     FixedPrecisionPrice(double d): 
     places(Places) {
         divisor = Power<T, Places>(10)();
-
-        T raw = static_cast<T>(d*divisor);
-        value = raw;
+        value = static_cast<T>(d*divisor);
     }
 
     FixedPrecisionPrice(const FixedPrecisionPrice& other) {
@@ -96,6 +95,9 @@ private:
     uint8_t places{0};
     T divisor{0};
 };
+#pragma pack(pop)
+
+static constexpr size_t FPSZ = sizeof(FixedPrecisionPrice<uint64_t, 2>);
 
 template<typename T, int Places>
 struct KeyHash {

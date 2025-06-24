@@ -6,7 +6,6 @@
 #include <unordered_map>
 #include <string.h>
 #include <string>
-
 namespace MarketData
 {
 
@@ -32,9 +31,8 @@ public:
 
     bool AddUpdateSymbol(Symbol& symbol);
 
-    bool PrintBook(const std::string& symbol);
-    void PrintAll();
 private:
+    bool PrintBook(const std::string& symbol);
     std::unordered_map<InstrumentID, std::shared_ptr<OrderBook>> instrument_map;
     std::unordered_map<std::string, InstrumentID> symbol_map;
     std::string exchange_name;

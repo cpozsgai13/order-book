@@ -4,6 +4,9 @@
 
 namespace MarketData {
 
+//  Minimum number of orders to be added before randomly generating updates or cancels
+static constexpr int MIN_ORDER_SIZE = 5;
+
 struct SymbolGreater {
   bool operator()(const Symbol& s1, const Symbol& s2) {
     return s1.instrument_id > s2.instrument_id;
@@ -40,7 +43,7 @@ void MarketDataMessageGenerator::init() {
 bool MarketDataMessageGenerator::GenerateMessages(std::vector<Symbol>& symbol_set, uint32_t N,
   std::vector<Packet>& message_packets) {
   std::mt19937 e2(dev());    
-
+  order_ids.reserve(N/2);
   if(generator_map.empty()) {
     init();
   }
@@ -60,7 +63,8 @@ bool MarketDataMessageGenerator::GenerateMessages(std::vector<Symbol>& symbol_se
 
     //  Select the symbol via random index
     int index = sym_index_generator(e2);
-    DataType new_type = (DataType)type_generator(e2);
+    DataType new_type = order_ids.size() < MIN_ORDER_SIZE ? DataType::ADD_ORDER : (DataType)type_generator(e2);
+
     auto iter = generator_map.find(new_type);
     if(iter == generator_map.end()) {
       return false;
@@ -68,11 +72,11 @@ bool MarketDataMessageGenerator::GenerateMessages(std::vector<Symbol>& symbol_se
     iter->second(msg, symbol_set[index].instrument_id);
 
     if(cur_packet.CanAddMessage()) {
-      cur_packet.AddMessage(std::move(msg));
+      cur_packet.AddMessage(msg);
     } else {
       message_packets.push_back(cur_packet);
       cur_packet.clear();
-      cur_packet.AddMessage(std::move(msg));
+      cur_packet.AddMessage(msg);
     }
   }
 
@@ -82,22 +86,8 @@ bool MarketDataMessageGenerator::GenerateMessages(std::vector<Symbol>& symbol_se
   return true;
 }
 
-// bool MarketDataMessageGenerator::GenerateSymbol(CoreMessage& msg, std::vector<Symbol>& symbols) {
-//   std::mt19937 e2(dev());    
-//   msg.data_type = DataType::SYMBOL;
-//   Symbol sym;
-//   InstrumentID instrument_min = *std::min_element(begin(symbols), end(symbols), SymbolGreater());
-//   //std::uniform_int_distribution<> id_generator{instrument_min, instrument_max};
-//   //sym.instrument_id = id_generator(e2);
-
-//   msg.data.symbol = sym;
-//   return false;
-// }
-
 bool MarketDataMessageGenerator::GenerateAddOrder(CoreMessage& msg, InstrumentID id) {
   msg.data_type = DataType::ADD_ORDER;
-  //msg.data = {};
-  //AddOrder(InstrumentID inst_id, OrderID oid, Side s, FixedPrecisionPrice<uint64_t, 6> p, Quantity q, uint64_t creation_time_ns)
   OrderID order_id = randomRange<uint64_t>(1, 1 << 8);
   Side s = (Side)randomRange<uint8_t>(0, 1);
   OrderType ot = (OrderType)randomRange<uint8_t>(0, 1);
@@ -111,13 +101,15 @@ bool MarketDataMessageGenerator::GenerateAddOrder(CoreMessage& msg, InstrumentID
   uint64_t creation_time_ns = std::chrono::system_clock::now().time_since_epoch().count();
 
   msg.data.add_order = AddOrder{ot, id, order_id, s, Price(p), q, creation_time_ns};
+  order_ids.push_back(order_id);
   return true;
 }
 
 bool MarketDataMessageGenerator::GenerateUpdateOrder(CoreMessage& msg, InstrumentID id) {
-  //    ModifyOrder(OrderID oid, InstrumentID inst_id, Side s, FixedPrecisionPrice<uint64_t, 6> p, Quantity q, uint64_t update_time_ns):
   msg.data_type = DataType::UPDATE_ORDER;
-  OrderID order_id = randomRange<uint64_t>(1, 1 << 8);
+
+  size_t order_index = randomRange<uint64_t>(0, order_ids.size() - 1);
+  OrderID order_id = order_ids[order_index];
   Side s = (Side)randomRange<uint8_t>(0, 1);
 
   RawPrice max_price = 1'000'000'000;
@@ -133,7 +125,8 @@ bool MarketDataMessageGenerator::GenerateUpdateOrder(CoreMessage& msg, Instrumen
 
 bool MarketDataMessageGenerator::GenerateCancelOrder(CoreMessage& msg, InstrumentID id) {
   msg.data_type = DataType::CANCEL_ORDER;
-  OrderID order_id = randomRange<uint64_t>(1, 1 << 8);
+  size_t order_index = randomRange<uint64_t>(0, order_ids.size() - 1);
+  OrderID order_id = order_ids[order_index];
   msg.data.cancel_order = CancelOrder{id, order_id};
   return true;
 }

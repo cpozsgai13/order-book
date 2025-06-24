@@ -108,10 +108,10 @@ bool MulticastSender::run() {
 
     auto msg = message_queue.front();
     message_queue.pop();
-    std::cout << "Message popped: " << msg.header.total_length << std::endl;
+    std::cout << "Message popped: " << msg.data.packet.header.total_length << std::endl;
 
     //  Send the packet.
-    auto sz = msg.header.total_length;
+    auto sz = msg.data.packet.header.total_length;
     int sent = sendto(sockfd, (char *)&msg, sz, 0, (struct sockaddr *)&addr, addr_len);
     if(sent <= 0) {
       std::cout << "Send error: " << errno << std::endl;

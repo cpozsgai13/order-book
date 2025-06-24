@@ -7,18 +7,19 @@
 #include <mutex>
 #include <condition_variable>
 #include "ring_buffer_spsc.hpp"
-
+#include "TCPMemoryPool.h"
 namespace MarketData
 {
-class TCPReceiver {
+class TCPReceiverThread {
     static constexpr size_t BUFFER_SIZE = 1500;
 public:
-    TCPReceiver(const std::string& address, int port, RingBufferSPSC<MarketData::Packet, RING_BUFFER_SIZE>& output, 
-        std::mutex& mut, std::condition_variable& cnd);
-    ~TCPReceiver() = default;
+    TCPReceiverThread(const std::string& address, int port,
+        RingBufferSPSC<MarketData::Packet, RING_BUFFER_SIZE>& output,
+        int retry_count = -1, int retry_interval_sec = 1);
+    ~TCPReceiverThread() = default;
 
     bool run();
-    void start();
+    bool start();
     void stop();
 	bool openSocket();
 	bool closeSocket();
@@ -28,15 +29,11 @@ private:
     std::string address;
     uint16_t port{0};
     RingBufferSPSC<Packet, RING_BUFFER_SIZE>& output_message_queue;
-    char buffer[BUFFER_SIZE];
+    int retry_count{-1};
+    int retry_interval_sec{1};
+    std::unique_ptr<TCPMemoryPool> tcp_memory_pool;
     int sockfd{-1};
-
     std::atomic_bool running{false};
-	std::mutex& m;
-	std::condition_variable& cond;
-
-	std::mutex mut_run;
-	std::condition_variable cond_run;
 };
 
 }

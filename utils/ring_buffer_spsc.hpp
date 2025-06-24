@@ -33,7 +33,7 @@ public:
             return false;
         }
 
-        data[next_tail] = value;
+        data[cur_tail] = value;
         tail.store(next_tail, std::memory_order::memory_order_release);
         return true;
     }

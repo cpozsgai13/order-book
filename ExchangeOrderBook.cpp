@@ -39,12 +39,6 @@ bool ExchangeOrderBook::CancelOrder(InstrumentID inst_id, OrderID orderID) {
   return iter->second->CancelOrder(orderID);
 }
 
-void ExchangeOrderBook::PrintAll() {
-  for(auto const& iter: symbol_map) {
-    std::cout << "PRINT " << iter.first << std::endl;
-    PrintBook(iter.first);
-  }
-}
 bool ExchangeOrderBook::PrintBook(const std::string& symbol) {
   //  Get inst_id from symbol.
   auto iter = symbol_map.find(symbol);

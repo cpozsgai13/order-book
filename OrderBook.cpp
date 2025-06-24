@@ -247,7 +247,6 @@ void OrderBook::MatchOrders()
 
                 if(ask_volume_map[best_ask] == 0) {
                     //  Erase the price line.
-                    ask_queue_map.erase(best_ask);
                     ask_volume_map.erase(best_ask);
                 }
             }
@@ -260,7 +259,6 @@ void OrderBook::MatchOrders()
 
                 if(bid_volume_map[best_bid] == 0) {
                     //  Erase the price line.
-                    bid_queue_map.erase(best_bid);
                     bid_volume_map.erase(best_bid);
                 }
             }

@@ -4,7 +4,7 @@
 #include <numeric>
 #include "CoreMessages.h"
 #include "ExchangeOrderBook.h"
-#include "ExchangeDataProcessor.h"
+#include "ExchangeDataProcessorThread.h"
 #include "MarketDataFileReader.h"
 #include "MarketDataLineParser.h"
 #include "MarketDataMessageGenerator.h"
@@ -18,8 +18,9 @@
 #include <thread>
 #include <string>
 #include "ring_buffer_spsc.hpp"
-#include "TCPSender.h"
-#include "TCPReceiver.h"
+#include "TCPSenderThread.h"
+#include "TCPReceiverThread.h"
+#include "PerformanceCounter.h"
 
 using namespace MarketData;
 using namespace std;
@@ -61,54 +62,6 @@ const auto parseAction=[](std::string& line) -> MarketData::Actions
 };
 
 
-const auto processMarketDataInputLine=[](std::string& line, ExchangeOrderBook& exchange_book) -> void
-{
-    Actions action = parseAction(line);
-    OrderPtr order_ptr;
-    //ModifyOrder mo;
-    switch(action)
-    {
-        case Actions::BUY:
-        case Actions::SELL:
-        {
-            // if(fromString(line, action == Actions::BUY ? Side::BID : Side::ASK, order_ptr))
-            // {
-            //     add_stats.push_back(CallAndMeasure(&OrderBook::AddOrder, &engine, order_ptr));
-            //     // engine.AddOrder(order_ptr);
-            // } 
-            break;
-        }
-        case Actions::MODIFY:
-        {
-            // if(fromString(line, mo))
-            // {
-            //     update_stats.push_back(CallAndMeasure(&OrderBook::UpdateOrder, &engine, mo));
-            // } 
-            break;
-        }
-        case Actions::CANCEL:
-        {
-            //OrderID order_id;
-            // if(fromString(line, order_id))
-            // {
-            //     cancel_stats.push_back(CallAndMeasure(&OrderBook::CancelOrder, &engine, order_id));
-            // } 
-            break;
-        }
-        case Actions::PRINT:
-        {
-            std::string symbol = line;
-            exchange_book.PrintBook(symbol);
-            // print_stats.push_back(CallAndMeasure(&OrderBook::Print, &engine));
-            //engine.Print();
-            break;
-        }
-        default:
-            break;
-    }
-
-};
-
 auto parseIniFile=[](const char *path) -> boost::property_tree::ptree {
     boost::property_tree::ptree res;
 
@@ -120,19 +73,26 @@ int main(int argc, char *argv[])
 {
     std::string send_interface;
     std::string recv_interface, recv_multicast;
-    std::shared_ptr<TCPSender> producer;
-    std::shared_ptr<TCPReceiver> consumer;
-    std::shared_ptr<ExchangeDataProcessor> exchange_processor;
+    std::shared_ptr<TCPSenderThread> producer;
+    std::shared_ptr<TCPReceiverThread> consumer;
+    std::shared_ptr<ExchangeDataProcessorThread> exchange_processor;
     std::string exchange_name;
     std::string consumer_ip;
     uint16_t consumer_port{0};
     uint16_t producer_port{0};
+    int consumer_core = -1;
+    int producer_core = -1;
+    int producer_send_rate = -1;
     std::string symbol_file;
     std::vector<std::string> data_files;
     std::string data_input_type;
     uint32_t num_random_objects = 0;
+    PerformanceMeta perf_meta;
     if(argc > 1)
     {
+        std::cout.sync_with_stdio(false);
+        std::cerr.sync_with_stdio(false);
+
         auto properties = parseIniFile(argv[1]);
 
         if(properties.empty()) {
@@ -164,6 +124,7 @@ int main(int argc, char *argv[])
 
         consumer_ip = properties.get<std::string>("consumer.ip");
         consumer_port = properties.get<uint16_t>("consumer.port");
+        consumer_core = properties.get_optional<int>("consumer.core").get_value_or(-1);
 
         if(consumer_ip.empty() || consumer_port == 0) {
             return 1;
@@ -172,29 +133,37 @@ int main(int argc, char *argv[])
         if(producer_port == 0) {
             return 1;
         }
-    }
+        producer_core = properties.get_optional<int>("producer.core").get_value_or(-1);
+        producer_send_rate = properties.get_optional<int>("producer.rate").get_value_or(-1);
 
+        bool perf_enabled = properties.get_optional<bool>("perf.enabled").get_value_or(false);
+        perf_meta.enabled = perf_enabled;
+                
+        if(perf_enabled) {
+            perf_meta.output_file = properties.get_optional<std::string>("perf.outfile").get_value_or("./perf.csv");
+            perf_meta.processor_speed = properties.get_optional<double>("perf.procspeed").get_value_or(0.0);
+        }        
+    }
 
     std::vector<Packet> message_packets;
-
-    MarketData::FileReader reader;
-    auto symbol_packets = reader.loadDataFile(symbol_file);
-    if(symbol_packets.empty()) {
-        std::cout << "Failed to load symbol data" << endl;
-        return 1;
-    }
-    size_t symbol_msg_count = 0;    
-    for(const auto& packet: symbol_packets) {
-        symbol_msg_count += packet.header.num_messages;
-    }
-    std::cout << "Loaded " << symbol_packets.size() << ", symbols: " << symbol_msg_count << endl;
-
+    std::vector<MarketData::Packet> symbol_packets;
     if(data_input_type == "file") {
+        MarketData::FileReader reader;
+        symbol_packets = reader.loadDataFile(symbol_file);
+        if(symbol_packets.empty()) {
+            std::cout << "Failed to load symbol data" << endl;
+            return 1;
+        }
+        size_t symbol_msg_count = 0;    
+        for(const auto& packet: symbol_packets) {
+            symbol_msg_count += packet.data.packet.header.num_messages;
+        }
+        std::cout << "Loaded " << symbol_packets.size() << ", symbols: " << symbol_msg_count << endl;
         size_t md_msg_count = 0;
         for(const auto& data_file: data_files) {
             auto&& packets = reader.loadDataFile(data_file);
             for(const auto& packet: packets) {
-                md_msg_count += packet.header.num_messages;
+                md_msg_count += packet.data.packet.header.num_messages;
                 message_packets.push_back(packet);
             }
         }
@@ -208,6 +177,7 @@ int main(int argc, char *argv[])
     } else if(data_input_type == "random") {
         MarketDataMessageGenerator generator;
         std::vector<Symbol> symbol_set;
+        MarketData::FileReader reader;
         reader.loadSymbolFile(symbol_file, symbol_set);
         generator.GenerateMessages(symbol_set, num_random_objects, message_packets);
     }
@@ -217,50 +187,66 @@ int main(int argc, char *argv[])
     std::mutex tcp_queue_mutex;
     std::condition_variable tcp_queue_cond;
 
-    exchange_processor = std::make_shared<ExchangeDataProcessor>(exchange_order_engine, tcp_message_queue, tcp_queue_mutex, tcp_queue_cond);
-    producer = std::make_shared<TCPSender>(producer_port);
-    consumer = std::make_shared<TCPReceiver>(consumer_ip, consumer_port, tcp_message_queue, tcp_queue_mutex, tcp_queue_cond);
+    producer = std::make_shared<TCPSenderThread>(producer_port, producer_send_rate);
+    consumer = std::make_shared<TCPReceiverThread>(consumer_ip, consumer_port, tcp_message_queue);
 
     //  Start the exchange processor.
-    std::thread processor_thread(&ExchangeDataProcessor::run, exchange_processor);
-    exchange_processor->start();
+    exchange_processor = std::make_shared<ExchangeDataProcessorThread>(exchange_order_engine, tcp_message_queue, perf_meta);
+    std::thread processor_thread(&ExchangeDataProcessorThread::start, exchange_processor);
 
-    std::thread producer_thread(&TCPSender::run, producer);
 
-    while(!symbol_packets.empty()) {
-        Packet& packet = symbol_packets.front();
-        producer->enqueue(packet);
-        symbol_packets.erase(begin(symbol_packets));
+    size_t num_packets = message_packets.size();
+    if(data_input_type == "file") {
+        while(!symbol_packets.empty()) {
+            //Packet& packet = symbol_packets.front();
+            auto&& packet = symbol_packets.front();
+            producer->enqueue(std::move(packet));
+            symbol_packets.erase(begin(symbol_packets));
+        }
+
     }
 
-    //  TCP producer will block until connected, then will run.
-    producer->start();
-
-    //  Start a consumer and a producer.
-    std::thread consumer_thread(&TCPReceiver::run, consumer);
-    consumer->start();
+    //  Start a consumer.
+    std::thread consumer_thread(&TCPReceiverThread::start, consumer);
+    if(consumer_core >= 0) {
+        cpu_set_t consumer_core_set;
+        CPU_ZERO(&consumer_core_set);
+        CPU_SET(consumer_core, &consumer_core_set);
+        int rc = pthread_setaffinity_np(consumer_thread.native_handle(), sizeof(cpu_set_t), &consumer_core_set);
+        if(rc != 0) {
+            std::cout << "Failed to pin consumer core " << consumer_core << std::endl;
+        }
+    }
 
     //  Import the non-symbol data.
     while(!message_packets.empty()) {
         Packet& packet = message_packets.front();
-        producer->enqueue(packet);
+        producer->enqueue(std::move(packet));
         message_packets.erase(begin(message_packets));
     }
-    std::string line;
+    std::cout << "Done enqueuing input data packets: " << num_packets << '\n';
 
-    //  Allow user to manually add content or load from files.
+    //  Start producer after it has loaded the data packets.
+    std::thread producer_thread(&TCPSenderThread::start, producer);
+    if(producer_core >= 0) {
+        cpu_set_t producer_core_set;
+        CPU_ZERO(&producer_core_set);
+        CPU_SET(producer_core, &producer_core_set);
+        int rc = pthread_setaffinity_np(producer_thread.native_handle(), sizeof(cpu_set_t), &producer_core_set);
+        if(rc != 0) {
+            std::cout << "Failed to pin producer core " << producer_core << std::endl;
+        }
+    }
+
+    std::string line;
     while(true)
     {
         std::getline(std::cin, line);
         if(line == "q")
         {
             break;
-        } else {
-            //  Take commands
-            processMarketDataInputLine(line, exchange_order_engine);
         }
     }
-
     producer->stop();
     producer_thread.join();
 
@@ -269,6 +255,5 @@ int main(int argc, char *argv[])
 
     exchange_processor->stop();
     processor_thread.join();
-
     return 0;
 }

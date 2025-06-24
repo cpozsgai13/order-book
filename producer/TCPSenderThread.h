@@ -14,29 +14,28 @@
 
 namespace MarketData 
 {
-class TCPSender {
+class TCPSenderThread {
     static constexpr size_t BUFFER_SIZE = 1500;
 public:
-	TCPSender(uint16_t send_port);
-	~TCPSender() = default;
+	TCPSenderThread(uint16_t send_port, int send_rate);
+	~TCPSenderThread() = default;
 
     bool run();
-	void start();
+	bool start();
     void stop();
 	bool openSocket();
 	bool closeSocket();
-	bool enqueue(Packet& packet);
+	bool enqueue(Packet&& packet);
 private:
 	RingBufferSPSC<MarketData::Packet, RING_BUFFER_SIZE> message_queue;
 
 	uint16_t port;
-    char buffer[BUFFER_SIZE];
+	Packet packet;
     int sockfd{-1};
 	int client_sockfd{-1};
     std::atomic_bool running{false};
+	std::atomic<int> packets_per_second{10'000};
 
-	std::mutex m;
-	std::condition_variable cond;
 };
 
 }
