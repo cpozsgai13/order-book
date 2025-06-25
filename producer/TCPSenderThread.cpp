@@ -114,7 +114,21 @@ bool TCPSenderThread::run() {
   return closeSocket();
 }
 
-bool TCPSenderThread::start() {
+bool TCPSenderThread::start(int core) {
+  if(core != -1) {
+    this->core = core;
+    cpu_set_t producer_core_set;
+    CPU_ZERO(&producer_core_set);
+    CPU_SET(core, &producer_core_set);
+    pthread_t self = pthread_self();
+    int rc = pthread_setaffinity_np(self, sizeof(cpu_set_t), &producer_core_set);
+    if(rc != 0) {
+      std::cout << "Failed to pin producer core " << core << std::endl;
+      return false;
+    }
+
+  }
+
   if(!openSocket()) {
     return false;
   }

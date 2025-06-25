@@ -207,16 +207,7 @@ int main(int argc, char *argv[])
     }
 
     //  Start a consumer.
-    std::thread consumer_thread(&TCPReceiverThread::start, consumer);
-    if(consumer_core >= 0) {
-        cpu_set_t consumer_core_set;
-        CPU_ZERO(&consumer_core_set);
-        CPU_SET(consumer_core, &consumer_core_set);
-        int rc = pthread_setaffinity_np(consumer_thread.native_handle(), sizeof(cpu_set_t), &consumer_core_set);
-        if(rc != 0) {
-            std::cout << "Failed to pin consumer core " << consumer_core << std::endl;
-        }
-    }
+    std::thread consumer_thread(&TCPReceiverThread::start, consumer, consumer_core);
 
     //  Import the non-symbol data.
     while(!message_packets.empty()) {
@@ -227,16 +218,7 @@ int main(int argc, char *argv[])
     std::cout << "Done enqueuing input data packets: " << num_packets << '\n';
 
     //  Start producer after it has loaded the data packets.
-    std::thread producer_thread(&TCPSenderThread::start, producer);
-    if(producer_core >= 0) {
-        cpu_set_t producer_core_set;
-        CPU_ZERO(&producer_core_set);
-        CPU_SET(producer_core, &producer_core_set);
-        int rc = pthread_setaffinity_np(producer_thread.native_handle(), sizeof(cpu_set_t), &producer_core_set);
-        if(rc != 0) {
-            std::cout << "Failed to pin producer core " << producer_core << std::endl;
-        }
-    }
+    std::thread producer_thread(&TCPSenderThread::start, producer, producer_core);
 
     std::string line;
     while(true)

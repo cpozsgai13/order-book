@@ -153,7 +153,20 @@ bool TCPReceiverThread::run() {
   return true;
 }
 
-bool TCPReceiverThread::start() {
+bool TCPReceiverThread::start(int core) {
+  if(core != -1) {
+    this->core = core;
+    cpu_set_t consumer_core_set;
+    CPU_ZERO(&consumer_core_set);
+    CPU_SET(core, &consumer_core_set);
+    pthread_t self = pthread_self();
+    int rc = pthread_setaffinity_np(self, sizeof(cpu_set_t), &consumer_core_set);
+    if(rc != 0) {
+      std::cout << "Failed to pin consumer core " << core << std::endl;
+      return false;
+    }
+
+  }
   if(!openSocket()) {
       return false;
   }

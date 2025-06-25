@@ -19,7 +19,7 @@ public:
     ~TCPReceiverThread() = default;
 
     bool run();
-    bool start();
+    bool start(int core);
     void stop();
 	bool openSocket();
 	bool closeSocket();
@@ -34,6 +34,7 @@ private:
     std::unique_ptr<TCPMemoryPool> tcp_memory_pool;
     int sockfd{-1};
     std::atomic_bool running{false};
+    int core{-1};
 };
 
 }

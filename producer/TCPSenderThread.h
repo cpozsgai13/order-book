@@ -21,7 +21,7 @@ public:
 	~TCPSenderThread() = default;
 
     bool run();
-	bool start();
+	bool start(int core);
     void stop();
 	bool openSocket();
 	bool closeSocket();
@@ -35,6 +35,7 @@ private:
 	int client_sockfd{-1};
     std::atomic_bool running{false};
 	std::atomic<int> packets_per_second{10'000};
+    int core{-1};
 
 };
 
