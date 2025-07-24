@@ -51,9 +51,9 @@ struct Symbol {
         memset(symbol, 0, SYMBOL_MAX_LEN);
     }
     ~Symbol() = default;
-    Symbol(const Symbol& s) {
-        *this = s;
-    }
+    // Symbol(const Symbol& s) {
+    //     *this = s;
+    // }
     Symbol(const std::string& sym, InstrumentID id, FixedPrecisionPrice<uint64_t, 6> price):
     instrument_id(id),
     last_price(price)
@@ -61,13 +61,13 @@ struct Symbol {
       memset(symbol, 0, SYMBOL_MAX_LEN);
       strncpy(symbol, sym.c_str(), sym.length());
     }
-    Symbol& operator=(const Symbol& s) {
-      instrument_id = s.instrument_id;
-      memset(symbol, 0, SYMBOL_MAX_LEN);
-      strncpy(symbol, s.symbol, SYMBOL_MAX_LEN);
-      last_price = s.last_price;
-      return *this;
-    }
+    // Symbol& operator=(const Symbol& s) {
+    //   instrument_id = s.instrument_id;
+    //   memset(symbol, 0, SYMBOL_MAX_LEN);
+    //   strncpy(symbol, s.symbol, SYMBOL_MAX_LEN);
+    //   last_price = s.last_price;
+    //   return *this;
+    // }
     char symbol[SYMBOL_MAX_LEN];
     InstrumentID instrument_id{0};
     FixedPrecisionPrice<uint64_t, 6> last_price{0.0};
@@ -103,7 +103,7 @@ struct AddOrder {
 struct ModifyOrder {
     ModifyOrder() = default;
     ~ModifyOrder() = default;
-    ModifyOrder(const ModifyOrder& mo) = default;
+    // ModifyOrder(const ModifyOrder& mo) = default;
     ModifyOrder(OrderID oid, InstrumentID inst_id, Side s, FixedPrecisionPrice<uint64_t, 6> p, Quantity q, uint64_t update_time_ns):
         order_id(oid),
         instrument_id(inst_id),

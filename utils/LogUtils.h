@@ -4,6 +4,16 @@
 #include <sstream>
 #include <iomanip>
 
+const auto formatTimestampLocal = [](uint64_t timestamp_ns) -> std::string {
+  time_t t = timestamp_ns/1'000'000'000;
+  auto micros = (timestamp_ns/1'000) % 1'000'000;
+  struct tm *ts = localtime(&t);
+
+  std::stringstream ss;
+  ss << std::put_time(ts, "%H:%M:%S.") << std::setw(3) << std::setfill('0') << micros;
+  return ss.str();
+};
+
 const auto logHex=[](const char *buffer, size_t len) -> std::stringstream {
   auto bytes_per_line = 20;
 

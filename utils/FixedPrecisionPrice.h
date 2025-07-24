@@ -11,24 +11,15 @@ int NextPowerOfTwo(int value = V) {
     }
     return 1 << exponent;
 }
-template<typename T, int exponent>
-struct Power {
-    Power(T base):
-    value(base)
-    {
-    }
 
-    T operator()() {
-        return calculate();
-    }
-    constexpr T calculate(int exp = exponent) {
-        if(exp > 1) {
-            return value*calculate(exp - 1);
-        } else {
-            return value;
-        }
-    }
-    T value;
+template<typename T, int Exp>
+struct Power {
+    static constexpr T value = 10 * Power<T, Exp - 1>::value;
+};
+
+template<typename T>
+struct Power<T, 0> {
+    static constexpr T value = 1;
 };
 
 //  Representation of a price with a fixed number
@@ -40,27 +31,21 @@ struct Power {
 template<typename T, int Places>
 class FixedPrecisionPrice {
 public:
+    FixedPrecisionPrice() :
+    value(0), 
+    divisor(Power<T, Places>::value),
+    places(Places) {}
+
     FixedPrecisionPrice(T t): 
     value(t),
+    divisor(Power<T, Places>::value),
     places(Places) {
-        divisor = Power<T, Places>(10)();
     }
 
     FixedPrecisionPrice(double d): 
+    divisor(Power<T, Places>::value),
     places(Places) {
-        divisor = Power<T, Places>(10)();
         value = static_cast<T>(d*divisor);
-    }
-
-    FixedPrecisionPrice(const FixedPrecisionPrice& other) {
-        *this = other;
-    }
-
-    FixedPrecisionPrice& operator=(const FixedPrecisionPrice& other) {
-        value = other.value;
-        divisor = Power<T, Places>(10)();
-        places = Places;
-        return *this;
     }
 
     bool operator==(const FixedPrecisionPrice& other) {
@@ -92,8 +77,8 @@ public:
     }
 private:
     T value{0};
-    uint8_t places{0};
     T divisor{0};
+    uint8_t places{0};
 };
 #pragma pack(pop)
 

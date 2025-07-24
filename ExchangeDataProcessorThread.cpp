@@ -13,14 +13,6 @@
 namespace MarketData
 {
 
-auto formatTimestampLocal = [](uint64_t timestamp_ns) -> std::string {
-    time_t t = timestamp_ns/1'000'000'000;
-    struct tm *ts = localtime(&t);
-    std::stringstream ss;
-    ss << std::put_time(ts, "%H%M%S");
-    return ss.str();
-};
-
 auto createFileName=[]() -> std::string {
 	std::stringstream ss;
 
@@ -42,10 +34,10 @@ ExchangeDataProcessorThread::ExchangeDataProcessorThread(ExchangeOrderBook& exch
 }
 
 void ExchangeDataProcessorThread::initHandlers() {
-	handler_map.insert(std::make_pair(DataType::SYMBOL, std::bind(&ExchangeDataProcessorThread::processSymbol, this, std::placeholders::_1)));
-	handler_map.insert(std::make_pair(DataType::ADD_ORDER, std::bind(&ExchangeDataProcessorThread::processAddOrder, this, std::placeholders::_1)));
-	handler_map.insert(std::make_pair(DataType::UPDATE_ORDER, std::bind(&ExchangeDataProcessorThread::processUpdateOrder, this, std::placeholders::_1)));
-	handler_map.insert(std::make_pair(DataType::CANCEL_ORDER, std::bind(&ExchangeDataProcessorThread::processCancelOrder, this, std::placeholders::_1)));
+	handler_map[DataType::SYMBOL] = [this](CoreMessage& cm) { this->processSymbol(cm);};
+	handler_map[DataType::ADD_ORDER] = [this](CoreMessage& cm) { this->processAddOrder(cm);};
+	handler_map[DataType::UPDATE_ORDER] = [this](CoreMessage& cm) { this->processUpdateOrder(cm);};
+	handler_map[DataType::CANCEL_ORDER] = [this](CoreMessage& cm) { this->processCancelOrder(cm);};
 }
 
 void ExchangeDataProcessorThread::processSymbol(CoreMessage& cm) {

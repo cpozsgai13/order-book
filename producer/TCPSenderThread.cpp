@@ -20,6 +20,8 @@
 namespace MarketData 
 {
 
+static constexpr size_t NANOS_PER_SEC = 1'000'000'000;
+
 TCPSenderThread::TCPSenderThread(uint16_t send_port, int send_rate):
 port(send_port),
 packets_per_second(send_rate)
@@ -80,7 +82,7 @@ bool TCPSenderThread::run() {
   }
 
   auto thread_start_time = std::chrono::steady_clock::now().time_since_epoch().count();
-  int64_t delay_ns = 1'000'000'000/packets_per_second.load();
+  int64_t delay_ns = NANOS_PER_SEC/packets_per_second.load();
   while(running.load()) {
     if(!running.load()) {
       //std::cout << "Exiting run loop" << std::endl;

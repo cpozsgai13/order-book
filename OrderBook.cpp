@@ -22,16 +22,6 @@ auto formatTimestampUTC = [](std::chrono::system_clock::time_point tp) -> std::s
   return ss.str();
 };
 
-auto formatTimestampLocal = [](uint64_t timestamp_ns) -> std::string {
-  time_t t = timestamp_ns/1'000'000'000;
-  auto micros = (timestamp_ns/1'000) % 1'000'000;
-  struct tm *ts = localtime(&t);
-
-  std::stringstream ss;
-  ss << std::put_time(ts, "%H:%M:%S.") << std::setw(3) << std::setfill('0') << micros;
-  return ss.str();
-};
-
 OrderBook::OrderBook(Symbol& sym): 
   identity(sym)
 {

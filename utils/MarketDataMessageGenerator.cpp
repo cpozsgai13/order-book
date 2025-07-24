@@ -35,13 +35,20 @@ T randomRangeStep(T tmin, T tmax, T step) {
 }
 
 void MarketDataMessageGenerator::init() {
-    generator_map.insert(std::make_pair(DataType::ADD_ORDER, std::bind(&MarketDataMessageGenerator::GenerateAddOrder, this, std::placeholders::_1, std::placeholders::_2)));
-    generator_map.insert(std::make_pair(DataType::UPDATE_ORDER, std::bind(&MarketDataMessageGenerator::GenerateUpdateOrder, this, std::placeholders::_1,std::placeholders::_2)));
-    generator_map.insert(std::make_pair(DataType::CANCEL_ORDER, std::bind(&MarketDataMessageGenerator::GenerateCancelOrder, this, std::placeholders::_1, std::placeholders::_2)));
+    // generator_map.insert(std::make_pair(DataType::ADD_ORDER, std::bind(&MarketDataMessageGenerator::GenerateAddOrder, this, std::placeholders::_1, std::placeholders::_2)));
+    // generator_map.insert(std::make_pair(DataType::UPDATE_ORDER, std::bind(&MarketDataMessageGenerator::GenerateUpdateOrder, this, std::placeholders::_1,std::placeholders::_2)));
+    // generator_map.insert(std::make_pair(DataType::CANCEL_ORDER, std::bind(&MarketDataMessageGenerator::GenerateCancelOrder, this, std::placeholders::_1, std::placeholders::_2)));
+	generator_map[DataType::ADD_ORDER] = [this](CoreMessage& cm, InstrumentID id) { return this->GenerateAddOrder(cm, id);};
+	generator_map[DataType::UPDATE_ORDER] = [this](CoreMessage& cm, InstrumentID id) { return this->GenerateUpdateOrder(cm, id);};
+	generator_map[DataType::CANCEL_ORDER] = [this](CoreMessage& cm, InstrumentID id) { return this->GenerateCancelOrder(cm, id);};
 }
 
 bool MarketDataMessageGenerator::GenerateMessages(std::vector<Symbol>& symbol_set, uint32_t N,
   std::vector<Packet>& message_packets) {
+  if(symbol_set.empty()) {
+    return false;
+  }
+
   std::mt19937 e2(dev());    
   order_ids.reserve(N/2);
   if(generator_map.empty()) {

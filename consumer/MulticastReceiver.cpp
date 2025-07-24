@@ -16,28 +16,6 @@
 namespace MarketData
 {
 
-auto getPort = [](const std::string& addr) -> int
-{
-        int port = 0;
-        auto pos = addr.find(':');
-        if(pos != std::string::npos)
-        {
-                port = stoi(addr.substr(pos + 1));
-        }
-        return port;
-};
-
-auto getIP = [](const std::string& addr) -> std::string
-{
-        std::string ip;
-        auto pos = addr.find(':');
-        if(pos != std::string::npos)
-        {
-                ip = addr.substr(0, pos);
-        }
-        return ip;
-};
-
 MulticastReceiver::MulticastReceiver(const std::string& interface, int listen_port, 
     const std::string& multicast):
 interface_address(interface),
