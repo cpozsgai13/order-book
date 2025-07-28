@@ -340,13 +340,11 @@ bool FileReader::parseSymbol(const std::string& input_string, Symbol& sym) {
 
 std::vector<Packet> FileReader::loadDataFile(const std::string& path) {
   std::vector<Packet> packets;
-
 	FastFileReader file_reader(path);
 	std::string line;
   Packet cur_packet;
 	while(file_reader.getNextLine(line)) {
 		Actions action = parseActionLine(line);
-		continue;
 		switch(action)
 		{
 			case Actions::SYMBOL: 
@@ -354,12 +352,10 @@ std::vector<Packet> FileReader::loadDataFile(const std::string& path) {
 				CoreMessage cm{};
 				if(symbolFromString(line, cm)) {
 						if(cur_packet.CanAddMessage()) {
-							//cur_packet.AddMessage(std::move(cm));
 							cur_packet.AddMessage(cm);
 						} else {
 							packets.push_back(cur_packet);
 							cur_packet.clear();
-						//   cur_packet.AddMessage(std::move(cm));
 							cur_packet.AddMessage(cm);
 						}
 					}
@@ -372,13 +368,10 @@ std::vector<Packet> FileReader::loadDataFile(const std::string& path) {
 					if(orderFromString(line, action == Actions::BUY ? Side::BID : Side::ASK, cm)) {
 							if(cur_packet.CanAddMessage()) {
 								cur_packet.AddMessage(cm);
-								//cur_packet.AddMessage(std::move(cm));                    
 							} else {
 								packets.push_back(cur_packet);
 								cur_packet.clear();
 								cur_packet.AddMessage(cm);
-
-								//cur_packet.AddMessage(std::move(cm));
 							}
 					}
 					break;
@@ -389,12 +382,10 @@ std::vector<Packet> FileReader::loadDataFile(const std::string& path) {
 							if(modifyFromString(line, cm)) {
 								if(cur_packet.CanAddMessage()) {
 									cur_packet.AddMessage(cm);
-									//cur_packet.AddMessage(std::move(cm));
 								} else {
 									packets.push_back(cur_packet);
 									cur_packet.clear();
 									cur_packet.AddMessage(cm);
-									//cur_packet.AddMessage(std::move(cm));
 								}
 							}
 							break;
@@ -405,12 +396,10 @@ std::vector<Packet> FileReader::loadDataFile(const std::string& path) {
 							if(cancelFromString(line, cm))
 							{
 								if(cur_packet.CanAddMessage()) {
-									//cur_packet.AddMessage(std::move(cm));
 									cur_packet.AddMessage(cm);
 								} else {
 									packets.push_back(cur_packet);
 									cur_packet.clear();
-									//cur_packet.AddMessage(std::move(cm));
 									cur_packet.AddMessage(cm);
 								}
 							} 

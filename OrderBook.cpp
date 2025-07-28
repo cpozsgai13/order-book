@@ -59,31 +59,31 @@ bool OrderBook::AddOrder(OrderPtr order)
       return true;
   }
 
-  OrderQueue order_queue;
   if(order->GetSide() == Side::BID)
   {
-      auto& orders = bid_queue_map[price];
-
-      //  There are no orders at this price.
-      if(orders.empty()) {
-          bid_volume_map.insert(std::make_pair(price, q));
-      } else {
-          //  Lookup the price and add the volume.
-          bid_volume_map[price] += q;
-      }
-
-      orders.push_back(order);
+    auto iter = bid_queue_map.find(price);
+    if(iter == bid_queue_map.end()) {
+        CustomOrderQueue bid_queue(QueueOrderIDComparator);
+        bid_queue.push_back(order);
+        bid_queue_map.insert(std::make_pair(price, bid_queue));
+        bid_volume_map.insert(std::make_pair(price, q));
+    } else {
+        bid_volume_map[price] += q;
+        iter->second.push_back(order);
+    }
   }
   else if(order->GetSide() == Side::ASK)
   {
-      auto& orders = ask_queue_map[price];
-      if(orders.empty()) {
-          ask_volume_map.insert(std::make_pair(price, q));
-      } else {
-          ask_volume_map[price] += q;
-      }
-
-      orders.push_back(order);
+    auto iter = ask_queue_map.find(price);
+    if(iter == ask_queue_map.end()) {
+        CustomOrderQueue ask_queue(QueueOrderIDComparator);
+        ask_queue.push_back(order);
+        ask_queue_map.insert(std::make_pair(price, ask_queue));
+        ask_volume_map.insert(std::make_pair(price, q));
+    } else {
+        ask_volume_map[price] += q;
+        iter->second.push_back(order);
+    }
   }
 
   order_map.insert(std::make_pair(order_id, order));
@@ -121,7 +121,7 @@ bool OrderBook::CancelOrder(OrderID order_id)
         //  remove from the heap.
         auto bid_queue_iter = bid_queue_map.find(price);
         if(bid_queue_iter != bid_queue_map.end()) {
-            OrderQueue& order_queue = bid_queue_iter->second;
+            auto& order_queue = bid_queue_iter->second;
             order_queue.erase(order);
             if(order_queue.empty()) {
                 bid_queue_map.erase(bid_queue_iter);
@@ -146,7 +146,7 @@ bool OrderBook::CancelOrder(OrderID order_id)
         //  remove from the heap.
         auto ask_queue_iter = ask_queue_map.find(price);
         if(ask_queue_iter != ask_queue_map.end()) {
-            OrderQueue& order_queue = ask_queue_iter->second;
+            auto& order_queue = ask_queue_iter->second;
             order_queue.erase(order);
             if(order_queue.empty()) {
                 ask_queue_map.erase(ask_queue_iter);

@@ -145,20 +145,19 @@ int main(int argc, char *argv[])
         }        
     }
 
-    std::vector<Packet> message_packets;
-    std::vector<MarketData::Packet> symbol_packets;
+    MarketData::FileReader reader;
+    std::vector<Packet> message_packets = reader.loadDataFile(symbol_file);
+    if(message_packets.empty()) {
+        std::cout << "Failed to load symbol data" << endl;
+        return 1;
+    }
+    size_t symbol_msg_count = 0;    
+    for(const auto& packet: message_packets) {
+        symbol_msg_count += packet.data.packet.header.num_messages;
+    }
+    std::cout << "Loaded " << message_packets.size() << ", symbols: " << symbol_msg_count << endl;
+
     if(data_input_type == "file") {
-        MarketData::FileReader reader;
-        symbol_packets = reader.loadDataFile(symbol_file);
-        if(symbol_packets.empty()) {
-            std::cout << "Failed to load symbol data" << endl;
-            return 1;
-        }
-        size_t symbol_msg_count = 0;    
-        for(const auto& packet: symbol_packets) {
-            symbol_msg_count += packet.data.packet.header.num_messages;
-        }
-        std::cout << "Loaded " << symbol_packets.size() << ", symbols: " << symbol_msg_count << endl;
         size_t md_msg_count = 0;
         for(const auto& data_file: data_files) {
             auto&& packets = reader.loadDataFile(data_file);
@@ -177,7 +176,6 @@ int main(int argc, char *argv[])
     } else if(data_input_type == "random") {
         MarketDataMessageGenerator generator;
         std::vector<Symbol> symbol_set;
-        MarketData::FileReader reader;
         reader.loadSymbolFile(symbol_file, symbol_set);
         generator.GenerateMessages(symbol_set, num_random_objects, message_packets);
     }
@@ -194,28 +192,15 @@ int main(int argc, char *argv[])
     exchange_processor = std::make_shared<ExchangeDataProcessorThread>(exchange_order_engine, tcp_message_queue, perf_meta);
     std::thread processor_thread(&ExchangeDataProcessorThread::start, exchange_processor);
 
-
-    size_t num_packets = message_packets.size();
-    if(data_input_type == "file") {
-        while(!symbol_packets.empty()) {
-            //Packet& packet = symbol_packets.front();
-            auto&& packet = symbol_packets.front();
-            producer->enqueue(std::move(packet));
-            symbol_packets.erase(begin(symbol_packets));
-        }
-
-    }
-
     //  Start a consumer.
     std::thread consumer_thread(&TCPReceiverThread::start, consumer, consumer_core);
 
-    //  Import the non-symbol data.
     while(!message_packets.empty()) {
         Packet& packet = message_packets.front();
         producer->enqueue(std::move(packet));
         message_packets.erase(begin(message_packets));
     }
-    std::cout << "Done enqueuing input data packets: " << num_packets << '\n';
+    std::cout << "Done enqueuing input data packets: " << message_packets.size() << '\n';
 
     //  Start producer after it has loaded the data packets.
     std::thread producer_thread(&TCPSenderThread::start, producer, producer_core);
